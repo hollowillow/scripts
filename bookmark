@@ -1,0 +1,165 @@
+#!/bin/sh
+#
+# script: bookmark
+# description: a simple, extensible, POSIX compliant bookmarking shell script
+# dependencies: dmenu, xdotool, xclip (any other menu, key typing, and clipboard tool can work if the script is modified)
+# optional dependencies: rofi, fzf, libnotify
+# github: https://github.com/hollowillow/dotfiles
+#
+
+### DEFAULT ###
+menu="dmenu -i -l 20 -p"
+action="pasteBookmark"
+file="$HOME/bookmark.md"
+
+
+### OPTIONS ###
+helpMessage() {
+
+printf "bookmark.sh is a simple, extensible, POSIX compliant boookmarking shell script
+Github: https://github.com/hollowillow/dotfiles\n 
+\tUsage: bookmark.sh [options] [arguments]\n 
+OPTIONS\n 
+\t-h\tDisplay this help message
+\t-q\tDisables printing feedback to terminal
+\t-n\tEnables desktop notification feedback
+\t-m\tChoose selection menu
+\t\t[dmenu|rofi|fzf] (default: dmenu)
+\t-a\tChoose an action, when adding a bookmark uses text copied in clipboard by default 
+\t\t[paste|add|remove|open] (default: paste) 
+\t-f\tChoose a file or directory, multiple paths can be specified by using the option multiple times,
+\t\tusing a directory provides all the files within it and its subdirectories
+\t\t(default: \$HOME/bookmarks.md)\n
+EXAMPLES\n
+\tbookmark.sh\t\t\tPastes a bookmark from \$HOME/bookmarks.md chosen with dmenu
+\tbookmark.sh -m rofi -a add\tBookmarks text copied in clipboard to \$HOME/bookmarks.md, with rofi as the menu
+\tbookmark.sh -f file1 -f file2\tAsks which file you want to select with dmenu, then pastes from said file\n \n"
+}
+
+sendFeedback () {
+        if [ -n "$feedback" ]; then
+                if [ "$quiet" != 1 ]; then
+                printf '%s\n' "$feedback"; fi
+                if [ "$notifications" = 1 ]; then
+                notify-send "$feedback"; fi
+        fi
+}
+
+menuSelection () {
+        case "${OPTARG}" in 
+                # menu commands must end with a prompt option in order to display prompts properly"
+                dmenu) menu="dmenu -i -l 20 -p";;
+                rofi) menu="rofi -dmenu -i -window-title bookmark.sh -p";;
+                # fzf has to run within a terminal, not usable systemwide
+                fzf) menu="fzf --header=bookmark.sh --bind=enter:replace-query+print-query --prompt";;
+                *) feedback="Error: Argument \"""${OPTARG}""\" is not available for option -m"; sendFeedback && exit 1;;
+        esac
+}
+
+actionSelection() {
+        case "${OPTARG}" in
+                add) action="addBookmark";;
+                paste) action="pasteBookmark";;
+                remove) action="removeBookmark";;
+                open) action="openBookmark";;
+                *) feedback="Error: Argument \"""${OPTARG}""\" is not available for option -a"; sendFeedback && exit 1;;
+        esac
+}
+
+fileSelection () {
+NL='
+'
+        files="$files$(find "${OPTARG}" -type f)$NL"
+        
+        if [ -d "${OPTARG}" ]; then
+                num=$((num+2)); fi
+        if [ -f "${OPTARG}" ]; then
+                num=$((num+1)); fi
+}
+
+### ACTIONS ###
+addBookmark() {
+        # default: bookmark what is copied in clipboard '-selection clipboard'
+        # for bookmarking highlited selection use '-selection primary'
+        bookmark=$(xclip -o -selection clipboard)
+
+        if grep -q "^$bookmark" "$file"; then
+                feedback="Already bookmarked!"; sendFeedback
+        else
+                #using the menu you can type in metadata to your bookmark that can be useful when searching for it
+                printf "%s\n" "$bookmark $(printf '\n' | ${menu} 'Add metadata: ')" >> "$file"
+                feedback="Bookmark \"$bookmark\" added to \"$file\"."; sendFeedback
+        fi
+}
+
+pasteBookmark() {
+        bookmark=$(sed "/^#/ d; /^$/ d" "$file" | ${menu} "Select bookmark: " | cut -d' ' -f1)
+
+        # default: automatically out the bookmark using 'xdotool type'
+        # for copying it into your clipboard use 'xclip -i'
+        if [ -n "$bookmark" ]; then
+                xdotool type "$bookmark"
+                feedback="Bookmark \"$bookmark\" pasted."; sendFeedback
+        else
+                feedback="Error: No bookmark selected"; sendFeedback && exit 1
+        fi
+}
+
+removeBookmark() {
+        bookmark=$(sed "/^#/ d; /^$/ d;" "$file" | ${menu} "Select bookmark: " | cut -d' ' -f1)
+        sed -i "\|$bookmark| d;" "$file"
+        feedback="Bookmark \"$bookmark\" removed from \"$file\"."; sendFeedback
+}
+
+openBookmark() {
+        # default: choices for open option 'mpv --fs\nfirefox\nxdotool type'
+        # to add more options, simply type the command you want and separte it with '\n'
+        open="firefox\nmpv --fs\nxdotool type"
+        bookmark=$(sed "/^#/ d; /^$/ d" "$file" | ${menu} "Select bookmark: " | cut -d' ' -f1)
+        $(printf "%s$open" | ${menu} "Open with: ") "$bookmark"
+        feedback="Bookmark \"$bookmark\" opened."
+}
+
+### OPTION HANDLING ###
+while getopts ":f:a:m:qnh" OPT
+do
+   case "$OPT" in
+           f) fileSelection;;
+           a) actionSelection;;
+           m) menuSelection;;
+           q) quiet=1;;
+           n) notifications=1;;
+           h) helpMessage && exit 1;;
+           :) printf '%s\n' "Error: Option -""${OPTARG}"" requires an argument" && exit 1;;
+           \?) printf '%s\n' "Error: Option -""${OPTARG}"" is not an option" && exit 1;;
+   esac
+done
+
+### FILE HANDLING ### 
+if [ -n "$num" ]; then 
+        #If only one file was selected, skip menu selection
+        if [ "$num" -eq 1 ]; then
+        #Uses printf in order to get rid of embedded newline
+        file="$(printf '%s' "$files")"; fi
+
+        #If multiple files or any directories were selected, invoke menu
+        if [ "$num" -gt 1 ]; then
+        file=$(printf '%s\n' "$files" | ${menu} "Select file: "); fi
+fi
+
+if [ -z "$file" ]; then
+        feedback="Error: No file selected"; sendFeedback && exit 1;
+fi
+
+#if [ "$file" = "$HOME/bookmark.md" ] && [ -f "$HOME/bookmarks.md" ]; then
+#        feedback="Using default file."; sendfeedback
+#else
+#        defaultFile="$(printf '%s\n' Yes No | ${menu} "Default file does not exist, do you wish to create it?")"
+#        case $defaultFile in
+#                Yes) touch "$HOME/bookmarks.md"; feedback="Created default file."; sendFeedback;;
+#                No) feedback="Default file not created, exiting script"; sendFeedback; exit 1;;
+#        esac
+#fi
+
+### RUN ###
+"${action}"

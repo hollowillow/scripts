@@ -1,0 +1,6 @@
+#!/bin/sh
+st &
+st -e htop &
+st -c rss -e newsraft -f $HOME/notes/bookmarks/rss &
+blueman-manager &
+firefox &

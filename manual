@@ -1,0 +1,25 @@
+#!/bin/sh
+
+terminal="st"
+menu="dmenu -i -l 20 -p"
+export MANPAGER="nvim +Man! +'set relativenumber'"
+
+while getopts "m:" OPT; do
+        case "${OPT}" in
+                m) case "${OPTARG}" in 
+                        # menu commands must end with a prompt option in order to display prompts properly"
+                        dmenu) menu="dmenu -i -l 20 -p";;
+                        rofi) menu="rofi -dmenu -i -window-title bookmark.sh -p";;
+                        # fzf has to run within a terminal, not usable systemwide
+                        fzf) menu="fzf --header=bookmark.sh --bind=enter:replace-query+print-query --prompt";;
+                        *) printf '%s\n' "Error: Incorrect argument" && exit 1;;
+                   esac;;
+                *) printf '%s\n' "Error: Incorrect option" && exit 1;;
+esac
+done
+
+manual="$(man -k . | ${menu} 'Manual: ' | cut -d' ' -f1)"
+
+if [ -n "$manual" ]; then
+        $($terminal -e man $manual)
+fi
