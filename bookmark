@@ -117,7 +117,7 @@ openBookmark() {
         open="firefox\nmpv --fs\nxdotool type"
         bookmark=$(sed "/^#/ d; /^$/ d" "$file" | ${menu} "Select bookmark: " | cut -d' ' -f1)
         $(printf "%s$open" | ${menu} "Open with: ") "$bookmark"
-        feedback="Bookmark \"$bookmark\" opened."
+        feedback="Bookmark \"$bookmark\" opened."; sendFeedback
 }
 
 ### OPTION HANDLING ###
