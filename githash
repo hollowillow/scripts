@@ -3,7 +3,7 @@ if [ "$(git rev-parse 2>/dev/null; printf '%s' $?)" -ne 0 ]; then
         printf '%s\n' "Error: not a git repo" && exit 1;
 else
 
-git log --oneline -n 10 | 
+git log --oneline | 
 fzf --preview="git show --color=always {1}" --preview-label="[commit diff]" --preview-window="top" |
 cut -d' ' -f1 |
 xargs xdotool type
