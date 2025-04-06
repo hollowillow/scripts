@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# script: fzgrep
+# description: a simple, extensible, POSIX compliant git commit search shell script
+# dependencies: fzf, bat(can be changed to cat but looses syntax highlighting), ripgrep, 
+#               vim/nvim(make sure you have $EDITOR set), xdotool
+# github: https://github.com/hollowillow/scripts
+#
+# DEFAULT KEYMAPS
+# enter: type out selected commit hash
+# ctrl-t: toggle preview window
+#
+
+if [ "$(git rev-parse 2>/dev/null; printf '%s' $?)" -ne 0 ]; then
+        printf '%s\n' "Error: not a git repo" && 
+        exit 1;
+
+else
+
+PREVIEW="git show --color=always {1}"
+git log --oneline \
+        | fzf \
+                --ansi --color=16 \
+                --preview="$PREVIEW" --preview-label="[commit diff]" --preview-window="top" \
+                --bind 'ctrl-t:toggle-preview' \
+        | cut -d' ' -f1 \
+        | xargs xdotool type
+
+fi;
