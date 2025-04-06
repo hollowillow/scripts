@@ -2,9 +2,10 @@
 #
 # script: bookmark
 # description: a simple, extensible, POSIX compliant bookmarking shell script
-# dependencies: dmenu, xdotool, xclip (any other menu, key typing, and clipboard tool can work if the script is modified)
-# optional dependencies: rofi, fzf, libnotify
-# github: https://github.com/hollowillow/dotfiles
+# dependencies: dmenu
+# optional dependencies: rofi (required for -m rofi), fzf (required for -m fzf), xdotool (required for -a paste), 
+#                        libnotify (required for -n), xclip (required for -a add)
+# github: https://github.com/hollowillow/scripts
 #
 
 ### DEFAULT ###
@@ -16,9 +17,9 @@ file="$HOME/bookmark.md"
 ### OPTIONS ###
 helpMessage() {
 
-printf "bookmark.sh is a simple, extensible, POSIX compliant boookmarking shell script
-Github: https://github.com/hollowillow/dotfiles\n 
-\tUsage: bookmark.sh [options] [arguments]\n 
+printf "bookmark is a simple, extensible, POSIX compliant bookmarking shell script
+Github: https://github.com/hollowillow/scripts\n 
+\tUsage: bookmark [options] [arguments]\n 
 OPTIONS\n 
 \t-h\tDisplay this help message
 \t-q\tDisables printing feedback to terminal
@@ -31,9 +32,9 @@ OPTIONS\n
 \t\tusing a directory provides all the files within it and its subdirectories
 \t\t(default: \$HOME/bookmarks.md)\n
 EXAMPLES\n
-\tbookmark.sh\t\t\tPastes a bookmark from \$HOME/bookmarks.md chosen with dmenu
-\tbookmark.sh -m rofi -a add\tBookmarks text copied in clipboard to \$HOME/bookmarks.md, with rofi as the menu
-\tbookmark.sh -f file1 -f file2\tAsks which file you want to select with dmenu, then pastes from said file\n \n"
+\tbookmark\t\t\tPastes a bookmark from \$HOME/bookmarks.md chosen with dmenu
+\tbookmark -m rofi -a add\t\tBookmarks text copied in clipboard to \$HOME/bookmarks.md, with rofi as the menu
+\tbookmark -f file1 -f file2\tAsks which file you want to select with dmenu, then pastes from said file\n \n"
 }
 
 sendFeedback () {
