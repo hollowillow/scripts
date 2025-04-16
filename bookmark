@@ -2,19 +2,46 @@
 #
 # script: bookmark
 # description: a simple, extensible, POSIX compliant bookmarking shell script
-# dependencies: dmenu
-# optional dependencies: rofi (required for -m rofi), fzf (required for -m fzf), xdotool (required for -a paste), 
+# dependencies: dmenu, fzf
+# optional dependencies: rofi (required for -m rofi), xdotool (required for -a paste), 
 #                        libnotify (required for -n), xclip (required for -a add)
 # github: https://github.com/hollowillow/scripts
 #
 
-### DEFAULT ###
-menu="dmenu -i -l 20 -p"
+### DEFAULTS ###
+
+# define menu defaults
+# can be defined globally by exporting TERM_MENU and GUI_MENU in shell
+if [ -z "$TERM_MENU" ]; then
+        TERM_MENU="fzf --header=bookmark.sh --bind=enter:replace-query+print-query --prompt"
+fi
+
+if [ -z "$GUI_MENU" ]; then
+        GUI_MENU="dmenu -i -l 20 -p"
+fi
+
+# dynamically use menu based on whether script is run in terminal or via keybind
+# can be overwritten by using the -m option
+if [ -t 0 ]; then
+        menu="$TERM_MENU"
+else
+        menu="$GUI_MENU"
+fi
+
+# default action
+# can be overwritten by using the -a option
 action="pasteBookmark"
+
+# default file
+# can be overwritten by using the -f option
 file="$HOME/bookmark.md"
 
+# default output feedback
+# the -q option switches between the boolean states
+quiet=0
 
 ### OPTIONS ###
+
 helpMessage() {
 
 printf "bookmark is a simple, extensible, POSIX compliant bookmarking shell script
@@ -22,14 +49,13 @@ Github: https://github.com/hollowillow/scripts\n
 \tUsage: bookmark [options] [arguments]\n 
 OPTIONS\n 
 \t-h\tDisplay this help message
-\t-q\tDisables printing feedback to terminal
-\t-n\tEnables desktop notification feedback
+\t-q\tToggle between sending feedback 
 \t-m\tChoose selection menu
-\t\t[dmenu|rofi|fzf] (default: dmenu)
+\t\t[dmenu|rofi|fzf] (default: dynamic)
 \t-a\tChoose an action, when adding a bookmark uses text copied in clipboard by default 
 \t\t[paste|add|remove|open] (default: paste) 
 \t-f\tChoose a file or directory, multiple paths can be specified by using the option multiple times,
-\t\tusing a directory provides all the files within it and its subdirectories
+\t\tspecifying a directory provides all the files within it and its subdirectories
 \t\t(default: \$HOME/bookmarks.md)\n
 EXAMPLES\n
 \tbookmark\t\t\tPastes a bookmark from \$HOME/bookmarks.md chosen with dmenu
@@ -38,11 +64,12 @@ EXAMPLES\n
 }
 
 sendFeedback () {
-        if [ -n "$feedback" ]; then
-                if [ "$quiet" != 1 ]; then
-                printf '%s\n' "$feedback"; fi
-                if [ "$notifications" = 1 ]; then
-                notify-send "$feedback"; fi
+        if [ -n "$feedback" ] && [ "$quiet" -ne 1 ]; then
+                if [ -t 0 ]; then
+                        printf '%s\n' "$feedback"
+                else
+                        notify-send "$feedback"
+                fi;
         fi
 }
 
@@ -122,14 +149,13 @@ openBookmark() {
 }
 
 ### OPTION HANDLING ###
-while getopts ":f:a:m:qnh" OPT
+while getopts ":f:a:m:qh" OPT
 do
    case "$OPT" in
            f) fileSelection;;
            a) actionSelection;;
            m) menuSelection;;
-           q) quiet=1;;
-           n) notifications=1;;
+           q) if [ "$quiet" -eq 0 ]; then quiet=1; else quiet=0; fi;;
            h) helpMessage && exit 1;;
            :) printf '%s\n' "Error: Option -""${OPTARG}"" requires an argument" && exit 1;;
            \?) printf '%s\n' "Error: Option -""${OPTARG}"" is not an option" && exit 1;;
@@ -151,16 +177,6 @@ fi
 if [ -z "$file" ]; then
         feedback="Error: No file selected"; sendFeedback && exit 1;
 fi
-
-#if [ "$file" = "$HOME/bookmark.md" ] && [ -f "$HOME/bookmarks.md" ]; then
-#        feedback="Using default file."; sendfeedback
-#else
-#        defaultFile="$(printf '%s\n' Yes No | ${menu} "Default file does not exist, do you wish to create it?")"
-#        case $defaultFile in
-#                Yes) touch "$HOME/bookmarks.md"; feedback="Created default file."; sendFeedback;;
-#                No) feedback="Default file not created, exiting script"; sendFeedback; exit 1;;
-#        esac
-#fi
 
 ### RUN ###
 "${action}"
