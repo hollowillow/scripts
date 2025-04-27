@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# script: fzpacman
+# description: simple, extensible POSIX script for searching through packages with fzf
+#              and installing, downloading or removing them with the pacman package manager
+# dependencies: fzf, pacman
+# github: https://github.com/hollowillow/scripts
+#
+
+if [ "$*" = '-h' ]; then
+
+printf "fzpacman is POSIX script for searching through packages with fzf
+and installing, downloading or removing them with the pacman package manager
+Github: https://github.com/hollowillow/scripts\n 
+\tUsage: fzpacman [options] [arguments]\n 
+OPTIONS\n 
+\t-h\tDisplay this help message\n
+EXAMPLES\n
+\tfzpacman\t\t\tOpens up fzf and let's you grep search through all packages
+\tfzpacman [argument]\t\tUses whichever argument as the initial fzf query\n \n";
+exit 0;
+
+else
+# default keybinds
+KEYBINDS=$'enter:install  ctrl-o:download  ctrl-r:remove\ntab:select  ctrl-a:select-all  ctrl-d:deselect-all  ctrl-t:toggle-preview'
+
+if [ -z "$TERM_MENU" ]; then
+        TERM_MENU="fzf --prompt"
+fi
+
+# change for different package managers
+INSTALL="sudo pacman -Sy {+2}"
+DOWNLOAD="sudo pacman -Syw {+2}"
+REMOVE="sudo pacman -Rns {+2}"
+LIST="pacman -Sl"
+
+$LIST | $TERM_MENU "Search: " \
+ --multi \
+ --preview='pacman -Si {2}' --preview-label="[package info]" \
+ --header="$KEYBINDS" \
+ --bind "enter:become:$INSTALL" \
+ --bind "ctrl-o:become:$DOWNLOAD" \
+ --bind "ctrl-r:become:$REMOVE" \
+ --bind 'ctrl-a:select-all,ctrl-d:deselect-all,ctrl-t:toggle-preview' \
+ --query="$*"
+fi;
