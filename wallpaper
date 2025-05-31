@@ -1,0 +1,9 @@
+#!/bin/sh
+
+while getopts "sr" OPT; do
+        case $OPT in
+                r) feh --bg-scale --recursive --no-fehbg --random "$WALLPAPERS_DIR" &;;
+                s) find "$WALLPAPERS_DIR" -type f | dmenu -p "Select background: " | xargs feh --bg-scale --no-fehbg;;
+                *) printf '%s\n' "Error: Incorrect option" && exit 1;;
+        esac
+done
