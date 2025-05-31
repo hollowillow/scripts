@@ -22,7 +22,7 @@ exit 0;
 
 else
 # default keybinds
-KEYBINDS=$'enter:install  ctrl-o:download  ctrl-r:remove\ntab:select  ctrl-a:select-all  ctrl-d:deselect-all  ctrl-t:toggle-preview'
+KEYBINDS="$(printf 'enter:install  ctrl-o:download  ctrl-r:remove\ntab:select  ctrl-a:select-all  ctrl-d:deselect-all  ctrl-t:toggle-preview')"
 
 if [ -z "$TERM_MENU" ]; then
         TERM_MENU="fzf --prompt"
