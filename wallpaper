@@ -1,9 +1,29 @@
 #!/bin/sh
+#
+# description: simple posix wallpaper script for the wayland protocol
+# dependencies: swaybg
+# github: https://github.com/hollowillow/scripts
+#
 
-while getopts "sr" OPT; do
-        case $OPT in
-                r) feh --bg-scale --recursive --no-fehbg --random "$WALLPAPERS_DIR" &;;
-                s) find "$WALLPAPERS_DIR" -type f | dmenu -p "Select background: " | xargs feh --bg-scale --no-fehbg;;
-                *) printf '%s\n' "Error: Incorrect option" && exit 1;;
-        esac
-done
+if [ -z "$WALLPAPERS_DIR" ]; then printf '%s\n' "Error: WALLPAPERS_DIR undefined" && exit 1; fi
+if [ -z "$GUI_MENU" ]; then printf '%s\n' "Error: GUI_MENU undefined" && exit 1; fi
+
+randomWall () {
+        WALLPAPER=$(find "$WALLPAPERS_DIR" -type f | shuf -n 1)
+        swaybg --image "$WALLPAPER" &
+        exit 0
+}
+
+selectWall () {
+        WALLPAPER=$(find "$WALLPAPERS_DIR" -type f | $GUI_MENU)
+        if [ -z "$WALLPAPER" ]; then printf '%s\n' "No file selected" && notify-send "No file selected" && exit 2; fi
+        swaybg --image "$WALLPAPER" &
+        exit 0
+}
+
+case $1 in
+        random) randomWall;;
+        select) selectWall;;
+        *) printf '%s\n' "Error: Incorrect option" && exit 1;;
+esac
+
