@@ -1,52 +1,45 @@
 #!/bin/sh
 
-menu="dmenu -i -l 20 -p"
-browser="firefox"
-
-while getopts "m:b:" OPT; do
-        case "${OPT}" in
-                m) case "${OPTARG}" in 
-                        # menu commands must end with a prompt option in order to display prompts properly"
-                        dmenu) menu="dmenu -i -l 20 -p";;
-                        rofi) menu="rofi -dmenu -i -window-title bookmark.sh -p";;
-                        # fzf has to run within a terminal, not usable systemwide
-                        fzf) menu="fzf --header=bookmark.sh --bind=enter:replace-query+print-query --prompt";;
+while getopts "b:" OPT
+do
+        case $OPT in
+                b) case $OPTARG in
+                        tab) BROWSER="$BROWSER --new-tab";;
+                        window) BROWSER="$BROWSER --new-window";;
                         *) printf '%s\n' "Error: Incorrect argument" && exit 1;;
                    esac;;
-                b) case "${OPTARG}" in
-                        tabFirefox) browser="firefox --new-tab";;
-                        instanceFirefox) browser="firefox --new-window";;
-                   esac;;
                 *) printf '%s\n' "Error: Incorrect option" && exit 1;;
-esac
+        esac
 done
 
-choices="duckduckgo\ngoogle\narchwiki\ngentoowiki\nyoutube\ndrivethrurpg\nnixdatabase\nprotondb\nsteamdb"
-chosen=$(printf "$choices" | ${menu} 'Select engine: ')
+CHOICES="DuckDuckGo\nGoogle\nArch Wiki\nGentoo Wiki\nYouTube\nGitHub\nDriveThruRPG\nNixOS package\nNixOS option\nProtonDB\nSteamDB"
+CHOSEN=$(printf "$CHOICES" | $GUI_MENU 'engine: ')
 
-case "$chosen" in
-        "duckduckgo") engine="https://duckduckgo.com/&q=" ;;
-        "google") engine="https://www.google.com/search?q=";;
-        "archwiki") engine="https://wiki.archlinux.org/index.php?search=";;
-        "gentoowiki") engine="https://wiki.gentoo.org/index.php?title=search&search=";;
-        "youtube") engine="https://www.youtube.com/results?search_query=";;
-        "github") engine="https://github.com/search?q=";;
-        "drivethrurpg") engine="https://www.drivethrurpg.com/en/browse?keyword=";;
-        #currently using unstable channel by default, 
-        #cause if the versioned channel updates you need to change the string to the correct version numbe
-        "nixdatabase") engine="https://search.nixos.org/packages?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=";;
-        "protondb") engine="https://www.protondb.com/search?q=";;
-        "steamdb") engine="https://steamdb.info/search/?a=all&q=";;
+if [ -z "$CHOSEN" ]; then printf '%s\n' "No engine chosen" && exit 0; fi
+
+case "$CHOSEN" in
+        "DuckDuckGo") ENGINE="duckduckgo.com/&q=" ;;
+        "Google") ENGINE="google.com/search?q=";;
+        "Arch Wiki") ENGINE="wiki.archlinux.org/index.php?search=";;
+        "Gentoo Wiki") ENGINE="wiki.gentoo.org/index.php?title=search&search=";;
+        "YouTube") ENGINE="youtube.com/results?search_query=";;
+        "GitHub") ENGINE="github.com/search?q=";;
+        "DriveThruRPG") ENGINE="drivethrurpg.com/en/browse?keyword=";;
+        # using unstable channel by default, 
+        "NixOS package") ENGINE="search.nixos.org/packages?channel=unstable&size=50&sort=relevance&query=";;
+        "NixOS option") ENGINE="search.nixos.org/options?channel=unstable&size=50&sort=relevance&query=test";;
+        "ProtonDB") ENGINE="www.protondb.com/search?q=";;
+        "SteamDB") ENGINE="steamdb.info/search/?a=all&q=";;
 esac
 
-if [ -z "$engine" ]; then 
+if [ -z "$ENGINE" ]; then 
         exit 1;
 fi
 
-query="$(printf '' | ${menu} 'Query: ')"
+QUERY="$(printf '' | $GUI_MENU 'query: ')"
 
-if [ -z "$query" ]; then
+if [ -z "$QUERY" ]; then
         exit 1;
 fi
 
-${browser} "${engine}${query}" &
+$BROWSER https://"${ENGINE}${QUERY}" &
