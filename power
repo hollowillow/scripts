@@ -1,28 +1,17 @@
 #!/bin/sh
+#
+# description: simple posix power script
+# depedencies: by default hyprlock but can be changed for any lock utility
+# github: http://github.com/hollowillow/scripts
+#
 
-menu="dmenu -i -p"
-
-while getopts "m:" OPT; do
-        case "${OPT}" in
-                m) case "${OPTARG}" in 
-                        # menu commands must end with a prompt option in order to display prompts properly"
-                        dmenu) menu="dmenu -i -l 20 -p";;
-                        rofi) menu="rofi -dmenu -i -window-title bookmark.sh -p";;
-                        # fzf has to run within a terminal, not usable systemwide
-                        fzf) menu="fzf --header=bookmark.sh --bind=enter:replace-query+print-query --prompt";;
-                        *) printf '%s\n' "Error: Incorrect argument" && exit 1;;
-                   esac;;
-                *) printf '%s\n' "Error: Incorrect option" && exit 1;;
-esac
-done
-
-chosen="$(printf "Lock\nSuspend\nPower Off\nReboot" | ${menu} "Select a means of shutdown: ")"
+chosen="$(printf "Lock\nSuspen\nPower Off\nReboot" | $GUI_MENU "power: ")"
 
 case $chosen in
-        "Lock") if [ "$(printf '%s\n' Yes No | ${menu} 'Are you certain?')" = "Yes" ]; then slock; fi;;
-        "Suspend") if [ "$(printf '%s\n' Yes No | ${menu} 'Are you certain?')" = "Yes" ]; then systemctl suspend; fi;;
-        "Power Off") if [ "$(printf '%s\n' Yes No | ${menu} 'Are you certain?')" = "Yes" ]; then systemctl poweroff; fi;;
-        "Reboot") if [ "$(printf '%s\n' Yes No | ${menu} 'Are you certain?')" = "Yes" ]; then systemctl reboot; fi;;
+        "Lock") if [ "$(printf '%s\n' Yes No | $GUI_MENU 'confirm:')" = "Yes" ]; then hyprlock; fi;;
+        "Suspend") if [ "$(printf '%s\n' Yes No | $GUI_MENU 'confirm')" = "Yes" ]; then systemctl suspend; fi;;
+        "Power Off") if [ "$(printf '%s\n' Yes No | $GUI_MENU 'confirm')" = "Yes" ]; then systemctl poweroff; fi;;
+        "Reboot") if [ "$(printf '%s\n' Yes No | $GUI_MENU 'confirm')" = "Yes" ]; then systemctl reboot; fi;;
 esac
 
 
