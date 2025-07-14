@@ -1,0 +1,149 @@
+#!/bin/sh
+#
+# description: a simple posix bookmarking script for the Wayland protocol
+# dependencies: ydotool, wl-clipboard
+# repo: https://github.com/hollowillow/scripts
+#
+# usage: bookmark-wl [options] [command]
+# options: 
+#       q - quiet, turns of feedback
+# commands: 
+#       paste
+#       remove
+#       add
+#       open
+# example: bookmark -q paste
+#
+# exit 0 - script run succesfully
+# exit 1 - no selection
+# exit 2 - dependency not installed
+# exit 3 - environment variable undefined
+# exit 4 - ydotool daemon not running
+# exit 5 - unknown option or command
+#
+
+# Uncomment to override global variables
+# BOOKMARK_FILE="$HOME/bookmarks.txt"
+# GUI_MENU="tofi --prompt-text"
+# TERM_MENU"fzf --prompt"
+# BROWSER="firefox"
+
+### define functions ###
+
+sendFeedback() {
+        if [ -z "$QUIET" ]; then
+                if [ -t 1 ]; then
+                        printf '%s\n' "$1"
+                else
+                        notify-send "$1"
+                fi;
+        fi
+}
+
+pasteBookmark () {
+        METADATA=$(sed "/^#/ d; /^$/d" "$BOOKMARK_FILE" | cut -d'|' -f2-4 | $MENU "paste: " )
+        LINK=$(sed "\{$METADATA{ !d" "$BOOKMARK_FILE" | cut -d'|' -f1 )
+        if [ -n "$LINK" ]; then
+                ydotool type "$LINK"
+                sendFeedback "Bookmark \"$METADATA\" pasted" && exit 0
+        else
+                sendFeedback "No bookmark selected" && exit 1
+        fi
+}
+
+openBookmark () {
+        METADATA=$(sed "/^#/ d; /^$/d" "$BOOKMARK_FILE" | cut -d'|' -f2-4 | $MENU "open: " )
+        LINK=$(sed "\{$METADATA{ !d" "$BOOKMARK_FILE" | cut -d'|' -f1 )
+        if [ -n "$LINK" ]; then
+                OPEN="$BROWSER\nMPV\nPaste"
+                SELECTED="$(printf "%s$OPEN" | $MENU 'with: ')"
+                case $SELECTED in
+                        "$BROWSER") "$BROWSER" "$LINK";;
+                        MPV) mpv "$LINK";;
+                        Paste) ydotool type "$LINK";;
+                esac
+                sendFeedback "Bookmark \"$METADATA\" opened" && exit 0
+        else
+                sendFeedback "No bookmark selected" && exit 1
+        fi
+}
+
+addBookmark () {
+        LINK="$(wl-paste)"
+
+        if [ -n "$LINK" ]; then
+                if grep -q "^$LINK" "$BOOKMARK_FILE"; then
+                        sendFeedback "Already bookmarked!" && exit 1
+                else
+                        NAME="$(printf '' | $MENU 'name: ')"
+                        TAGS="$(printf '' | $MENU 'tags: ')"
+                        BOOKMARK="$LINK|$NAME|$TAGS"
+                        printf '%s\n' "$BOOKMARK" >> "$BOOKMARK_FILE"
+                        sendFeedback "Bookmark \"$BOOKMARK\" saved" && exit 0
+                fi
+        else 
+                sendFeedback "No link copied" && exit 1
+        fi
+}
+
+removeBookmark () {
+        METADATA=$(sed "/^#/ d; /^$/d" "$BOOKMARK_FILE" | cut -d'|' -f2-4 | $MENU "remove: " )
+        LINK=$(sed "\{$METADATA{ !d" "$BOOKMARK_FILE" | cut -d'|' -f1 )
+        if [ -n "$LINK" ]; then
+                if [ "$(printf '%s\n' Yes No | $MENU 'confirm: ' )" = "Yes" ]; then
+                        sed -i "\|$LINK| d" "$BOOKMARK_FILE";
+                        sendFeedback "Bookmark \"$METADATA\" removed"; exit 0
+                else
+                        sendFeedback "Bookmark not removed"; exit 1
+                fi
+        else 
+                sendFeedback "No bookmark selected"; exit 1
+        fi
+}
+
+### check required dependencies ###
+
+for DEPENDENCY in ydotool ydotoold wl-copy wl-paste
+do
+        if command -v "$DEPENDENCY" >/dev/null 2>&1; then true; else
+                sendFeedback "Error: dependency not found: $DEPENDENCY" && exit 2; fi
+done
+
+for VARIABLE_NAME in TERM_MENU GUI_MENU BOOKMARK_FILE BROWSER
+do
+        eval VARIABLE="\$$VARIABLE_NAME"
+        if [ -n "$VARIABLE" ]; then true; else
+                sendFeedback "Error: variable undefined: $VARIABLE_NAME" && exit 3; fi
+done
+
+if [ -S /run/user/"$(id -u)"/.ydotool_socket ]; then 
+        true;
+else 
+        sendFeedback "Error: ydotool daemon not running" && exit 4
+fi
+
+### dynamic menu ###
+
+if [ -t 1 ]; then
+        MENU="$TERM_MENU"
+else
+        MENU="$GUI_MENU"
+fi
+
+### option parsing ###
+
+while getopts "q" OPT >/dev/null 2>&1
+do
+        case "$OPT" in
+                q) QUIET=true;;
+                *) sendFeedback "Error: unknown option: $OPT"; exit 5
+        esac
+done
+
+case $1 in
+        paste) pasteBookmark;;
+        add) addBookmark;;
+        remove) removeBookmark;;
+        open) openBookmark;;
+        *) sendFeedback "Error: unknown command: $1" && exit 5;;
+esac
