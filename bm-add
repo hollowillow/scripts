@@ -1,0 +1,132 @@
+#!/bin/sh
+#
+# summary: a simple posix script for saving bookmarks
+# repository: https://github.com/hollowillow/scripts
+#
+# usage: bm-add [-hq] [-flnt arg]
+# options:
+#
+#       -f      specify input/output file
+#       -h      display this help message
+#       -l      set link metadata field
+#       -n      set name metadata field
+#       -q      supress all output
+#       -t      set tags metadata field
+#
+# dependencies: grep, fzf, wl-clipboard (wayland), xclip (x11), curl (optional), libnotify (optional)
+
+# exit 0 - successful execution
+# exit 1 - no selection
+# exit 2 - error
+
+# RECOMMENDED: uncomment to set script specific defaults, or set globally
+# BOOKMARK_FILE="$HOME/bookmarks.md"
+# FZF_DEFAULT_HEADER='use this to set a global header!'
+
+### define functions ###
+
+sendFeedback() {
+        if [ -z "$QUIET" ]; then
+                printf '%s\n' "$1"; notify-send "$1"
+        fi
+}
+
+parseName() {
+        NAME="${NAME:-"$(\
+                fzf \
+                --prompt "name: " \
+                --header="$(printf '%s\n' 'enter:print-query' "$FZF_DEFAULT_HEADER")" \
+                --print-query --query "$(curl -s "$LINK" | grep -o "<title>[^<]*" | cut -d'>' -f2)" \
+                </dev/null
+        )"}"
+        
+        if [ "$?" -eq 130 ]; then sendFeedback "No selection!"; exit 1; fi
+        if printf "%s" "$NAME" | grep -qF "\n" >/dev/null; then sendFeedback "Error: Illegal character in metadata: newline" >&2; exit 2; fi
+        case "$NAME" in
+                *\|*) sendFeedback "Error: Illegal character in metadata: |" >&2; exit 2;;
+                "") sendFeedback "Error: Name field required" >&2; exit 2;;
+        esac
+}
+
+parseTags() {
+        SELECTED="${TAGS:-"$(\
+                cut -d'|' -f3 "$BOOKMARK_FILE" |
+                cut -d',' -f1 |
+                sed "/^#/ d;/^$/ d;s/[ \t]*$//" |
+                tr ',' '\n' |
+                sort | uniq -i |
+                fzf \
+                --prompt "tags: " \
+                --header="$(printf '%s\n' 'enter:confirm  ctrl-o:print-query' "$FZF_DEFAULT_HEADER")" \
+                --multi \
+                --bind="ctrl-o:print-query" \
+        )"}"
+
+        if [ "$?" -eq 130 ]; then sendFeedback "No selection!" >&2; exit 1; fi
+        if printf "%s" "$SELECTED" | grep -qF "\n" >/dev/null; then sendFeedback "Error: Illegal character in metadata: newline" >&2; exit 2; fi
+        case "$SELECTED" in
+                *\|*) sendFeedback "Error: Illegal character in metadata: |" >&2; exit 2;;
+        esac
+
+        TAGS="$(printf '%s' "$SELECTED" | tr '\n' ',')"
+}
+
+parseLink() {
+        if [ "$(printenv XDG_SESSION_TYPE)" = wayland ]; then
+                LINK="${LINK:-"$(wl-paste)"}" 
+        elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ]; then
+                LINK="${LINK:-"$(xclip -o -selection clipboard)"}"
+        fi
+
+        LINK="$(printf '%s' "$LINK" | sed "s|http:|https:|")"
+
+        if printf "%s" "$LINK" | grep -qF "\n" >/dev/null; then sendFeedback "Error: Illegal character in metadata: newline" >&2; exit 2; fi
+        if grep -q "^$LINK" "$BOOKMARK_FILE"; then sendFeedback "Already bookmarked!"; exit 1; fi
+        case "$LINK" in
+                *\|*) sendFeedback "Error: Illegal character in metadata: |" >&2; exit 2;;
+                "") sendFeedback "Error: Link field required" >&2; exit 2;;
+        esac
+}
+
+### parse options ###
+
+while getopts "f:hl:n:qt:" OPT
+do
+        case "$OPT" in
+                f) if [ -f "$OPTARG" ]; then BOOKMARK_FILE="$OPTARG"; else sendFeedback "Error: \"$OPTARG\" is not a file" >&2; exit 2; fi;;
+                h) sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0;;
+                l) LINK="$OPTARG";;
+                n) NAME="$OPTARG";;
+                q) QUIET=true;;
+                t) TAGS="$OPTARG";;
+                :) sendFeedback "Error: Option requires argument: $OPT" >&2; exit 2;;
+                *) sendFeedback "Error: Unknown option: $OPT" >&2; exit 2;;
+        esac
+done
+
+### check dependencies ###
+
+if [ "$(printenv XDG_SESSION_TYPE)" = wayland ]; then
+        set -- wl-paste
+elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ]; then
+        set -- xclip
+fi
+
+for DEPENDENCY in "grep" fzf "$@"
+do
+        if command -v "$DEPENDENCY" >/dev/null 2>&1; then true; else
+                sendFeedback "Error: dependency not found: $DEPENDENCY" >&2; exit 2
+        fi
+done
+
+if [ -z "$BOOKMARK_FILE" ]; then 
+        sendFeedback "Error: No file provided" >&2; exit 2
+fi
+
+### execute ###
+
+parseLink
+parseName
+parseTags
+printf '%s\n' "$LINK|$NAME|$TAGS" >> "$BOOKMARK_FILE"
+sendFeedback "Bookmark \"$NAME\" added."
