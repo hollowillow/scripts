@@ -83,9 +83,9 @@ else
         sed "/^#/ d;/^$/ d" "$BOOKMARK_FILE" | tac
 fi | fzf \
         --prompt 'open: ' \
-        --header="$(printf '%s\n' 'enter:copy  ctrl-o:open-in-browser  ctrl-i:open-in-mpv' "$FZF_DEFAULT_HEADER")" \
+        --header="$(printf '%s\n' 'enter:copy  ctrl-o:open-in-browser  ctrl-p:open-in-mpv' "$FZF_DEFAULT_HEADER")" \
         --multi \
         --delimiter="|" --with-nth="2,3" --accept-nth="1" \
         --bind="$COPY" \
         --bind='ctrl-o:become:nohup $BROWSER {+1} &' \
-        --bind='ctrl-i:become:nohup mpv {1} &' 
+        --bind='ctrl-p:become:nohup mpv {1} &' 
