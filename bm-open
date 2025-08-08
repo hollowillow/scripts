@@ -33,7 +33,7 @@ sendFeedback() {
 
 ### parse options ###
 
-while getopts "f:hqrs" OPT
+while getopts ":f:hqrs" OPT >/dev/null >&2
 do
         case "$OPT" in
                 f) if [ -f "$OPTARG" ]; then BOOKMARK_FILE="$OPTARG"; else sendFeedback "Error: \"$OPTARG\" is not a file" >&2; exit 2; fi;;
@@ -41,8 +41,8 @@ do
                 q) QUIET=true;;
                 r) REVERSE=true;;
                 s) SORT=true;;
-                :) sendFeedback "Error: Option requires argument: $OPT" >&2; exit 2;;
-                *) sendFeedback "Error: Unknown option: $OPT" >&2; exit 2;;
+                :) sendFeedback "Error: Option -""${OPTARG}"" requires an argument"; exit 2;;
+                \?) sendFeedback "Error: Option -""${OPTARG}"" is not an option"; exit 2;;
         esac
 done
 

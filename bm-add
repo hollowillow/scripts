@@ -90,7 +90,7 @@ parseLink() {
 
 ### parse options ###
 
-while getopts "f:hl:n:qt:" OPT
+while getopts ":f:hl:n:qt:" OPT >/dev/null >&2
 do
         case "$OPT" in
                 f) if [ -f "$OPTARG" ]; then BOOKMARK_FILE="$OPTARG"; else sendFeedback "Error: \"$OPTARG\" is not a file" >&2; exit 2; fi;;
@@ -99,8 +99,8 @@ do
                 n) NAME="$OPTARG";;
                 q) QUIET=true;;
                 t) TAGS="$OPTARG";;
-                :) sendFeedback "Error: Option requires argument: $OPT" >&2; exit 2;;
-                *) sendFeedback "Error: Unknown option: $OPT" >&2; exit 2;;
+                :) sendFeedback "Error: Option -""${OPTARG}"" requires an argument"; exit 2;;
+                \?) sendFeedback "Error: Option -""${OPTARG}"" is not an option"; exit 2;;
         esac
 done
 
