@@ -36,7 +36,7 @@ QUERY="$(\
         --header="$(printf '%s\n' 'enter:print-query ctrl-o:open-from-history' "$FZF_DEFAULT_HEADER")" \
         --delimiter '|' --accept-nth="2" \
         --bind='enter:print-query' \
-        --bind='ctrl-o:become:nohup $BROWSER {1}{2} &' \
+        --bind='ctrl-o:become:nohup $BROWSER {1}{2} >/dev/null 2>&1 &' \
         --query="$*"\
 )"
 
@@ -61,7 +61,7 @@ esac
 
 if [ -n "$QUERY" ]; then
         printf '%s\n' "$ENGINE|$QUERY|$(date "+%y/%m/%d-%H:%M:%S")" >> "$SEARCH_HIST_FILE";
-        nohup "$BROWSER" "$ENGINE$QUERY" &
+        nohup "$BROWSER" "$ENGINE$QUERY" >/dev/null 2>&1 &
 else
         printf '%s\n' "No query!"; exit 1
 fi
