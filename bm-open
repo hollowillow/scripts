@@ -87,5 +87,5 @@ fi | fzf \
         --multi \
         --delimiter="|" --with-nth="2,3" --accept-nth="1" \
         --bind="$COPY" \
-        --bind='ctrl-o:become:nohup $BROWSER {+1} &' \
-        --bind='ctrl-p:become:nohup mpv {1} &' 
+        --bind='ctrl-o:become:nohup $BROWSER {+1} >/dev/null 2>&1 &' \
+        --bind='ctrl-p:become:nohup mpv {1} >/dev/null 2>&1 &' 
