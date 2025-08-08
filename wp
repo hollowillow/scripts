@@ -67,7 +67,7 @@ selectWallpaper() {
 
 ### parse options ###
 
-while getopts "d:hqrs" OPT
+while getopts ":d:hqrs" OPT >/dev/null >&2
 do
         case "$OPT" in
                 d) if [ -d "$OPTARG" ]; then WALLPAPERS_DIR="$OPTARG"; else sendFeedback "Error: \"$OPTARG\" is not a directory" >&2; exit 2; fi;;
@@ -75,8 +75,8 @@ do
                 q) QUIET=true;;
                 r) randomWallpaper;;
                 s) selectWallpaper;;
-                :) sendFeedback "Error: Option requires argument: $OPT" >&2; exit 2;;
-                *) sendFeedback "Error: Unknown option: $OPT" >&2; exit 2;;
+                :) sendFeedback "Error: Option -""${OPTARG}"" requires an argument"; exit 2;;
+                \?) sendFeedback "Error: Option -""${OPTARG}"" is not an option"; exit 2;;
         esac
 done
 ### execute ###
