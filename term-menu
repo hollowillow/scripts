@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# summary: a simple wrapper script for a pop up terminal
+# repository: https://github.com/hollowillow/scripts
+#
+# usage: term-menu arg
+# takes any command as an argument and spawns said command in your
+# terminal with the special class term-menu.
+#
+# behaviour for the window class is up to configuration based on
+# your window manager or desktop environment.
+
+if [ "$1" = "-h" ]; then
+        sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0
+fi
+
+if pgrep -l -f term-menu | grep "$TERMINAL" >/dev/null >&2; then
+        kill "$(pgrep -l -f term-menu | grep "$TERMINAL" | cut -d' ' -f1)"
+else
+        "$TERMINAL" --class "term-menu" -e "$SHELL" -i -c "$*" &
+fi
