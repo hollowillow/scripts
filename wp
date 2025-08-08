@@ -56,7 +56,7 @@ selectWallpaper() {
                 sed "s/\.png$//;s/\.jpg$//;s/\.jpeg$//;" |
                 fzf \
                 --prompt "wallpaper: " \
-                --header="$(printf '%s\n' 'enter:confirm  ctrl-o:print-query' "$FZF_DEFAULT_HEADER")"
+                --header="$(printf '%s\n' "$FZF_DEFAULT_HEADER")"
         )"
         if [ -n "$WALLPAPER" ]; then 
                 setWallpaper "$(find "$WALLPAPERS_DIR" -type f -name "*$WALLPAPER\.*")"; sendFeedback "Set selected wallpaper"; exit 0
