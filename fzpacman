@@ -1,46 +1,33 @@
 #!/bin/sh
 #
-# script: fzpacman
-# description: simple, extensible POSIX script for searching through packages with fzf
-#              and installing, downloading or removing them with the pacman package manager
-# dependencies: fzf, pacman
+# summary: a simple posix script for fuzzy package management
 # github: https://github.com/hollowillow/scripts
 #
+# usage: fzpacman [arg]
+#
+# dependencies: fzf, pacman
 
-if [ "$*" = '-h' ]; then
-
-printf "fzpacman is POSIX script for searching through packages with fzf
-and installing, downloading or removing them with the pacman package manager
-Github: https://github.com/hollowillow/scripts\n 
-\tUsage: fzpacman [options] [arguments]\n 
-OPTIONS\n 
-\t-h\tDisplay this help message\n
-EXAMPLES\n
-\tfzpacman\t\t\tOpens up fzf and let's you grep search through all packages
-\tfzpacman [argument]\t\tUses whichever argument as the initial fzf query\n \n";
-exit 0;
-
-else
-# default keybinds
-KEYBINDS="$(printf 'enter:install  ctrl-o:download  ctrl-r:remove\ntab:select  ctrl-a:select-all  ctrl-d:deselect-all  ctrl-t:toggle-preview')"
-
-if [ -z "$TERM_MENU" ]; then
-        TERM_MENU="fzf --prompt"
+if [ "$1" = "-h" ]; then
+        sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0
 fi
 
-# change for different package managers
-INSTALL="sudo pacman -Sy {+2}"
-DOWNLOAD="sudo pacman -Syw {+2}"
-REMOVE="sudo pacman -Rns {+2}"
-LIST="pacman -Sl"
+if command -v pacman > /dev/null 2>&1; then
+        LIST='pacman -Sl'
+        INSTALL='sudo pacman -Sy {+2}'
+        DOWNLOAD='sudo pacman -Syw {+2}'
+        REMOVE='sudo pacman -Rns {+2}'
+        PREVIEW='pacman -Si {2}'
+else
+        printf '%s\n' "No supported package manager found"; exit 2
+fi
 
-$LIST | $TERM_MENU "Search: " \
- --multi \
- --preview='pacman -Si {2}' --preview-label="[package info]" \
- --header="$KEYBINDS" \
- --bind "enter:become:$INSTALL" \
- --bind "ctrl-o:become:$DOWNLOAD" \
- --bind "ctrl-r:become:$REMOVE" \
- --bind 'ctrl-a:select-all,ctrl-d:deselect-all,ctrl-t:toggle-preview' \
- --query="$*"
-fi;
+
+$LIST | fzf \
+        --prompt='package: ' \
+        --header="$(printf '%s\n' 'enter:install  ctrl-o:download  ctrl-r:remove' "$FZF_DEFAULT_HEADER")" \
+        --preview="$PREVIEW" --preview-label="[package info]" \
+        --multi \
+        --bind "enter:become:$INSTALL" \
+        --bind "ctrl-o:become:$DOWNLOAD" \
+        --bind "ctrl-r:become:$REMOVE" \
+        --query="$*"
