@@ -6,7 +6,7 @@
 # usage: autostart [arg]
 # description: 
 #
-#       launch sets of applications using files located in $AUTOSTART_DIR (default: $HOME/.local/share/autostart_profiles).
+#       launch sets of applications using files located in "$XDG_CONFIG_HOME/autostart".
 #       each file should only contain programs to be executed separated by newlines.
 #       not providing an argument launches a fzf window to select one or more files.
 #       providing arguments that are valid file names within the directory launches them directly.
@@ -18,9 +18,10 @@ if [ "$1" = "-h" ]; then
         sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0
 fi
 
-# check for autostart directory
-AUTOSTART_DIR="${AUTOSTART_DIR:-$HOME/.local/share/autostart_profiles}"
-cd "$AUTOSTART_DIR" || { printf '%s\n' "Error: Profile directory not found"; exit 2; }
+# declare autostart directory
+AUTOSTART_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+mkdir -p "$AUTOSTART_DIR" # create directory if it doesn't already exist
+cd "$AUTOSTART_DIR" || { printf '%s\n' "Error: Autostart directory not found"; exit 2; }
 
 # parse arguments or launch interactive fzf menu
 IFS='

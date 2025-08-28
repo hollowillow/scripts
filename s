@@ -20,10 +20,9 @@
 #
 # dependencies: fzf
 
-# RECOMMENDED: uncomment to set script specific defaults, or set globally
-# BROWSER="firefox"
-# SEARCH_HIST_FILE="$HOME/.local/state/search_history"
-# FZF_DEFAULT_HEADER='use this to set a global header!'
+BROWSER="${BROWSER:-firefox}"
+SEARCH_HIST_FILE="${XDG_STATE_HOME:-$HOME/.local/share}/search_history"
+touch "$SEARCH_HIST_FILE"
 
 if [ "$1" = "-h" ]; then
         sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0

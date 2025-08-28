@@ -18,10 +18,9 @@
 # exit 1 - no selection
 # exit 2 - error
 
-# RECOMMENDED: uncomment to set script specific defaults, or set globally
-# BROWSER="firefox"
-# BOOKMARK_FILE="$HOME/bookmarks.md"
-# FZF_DEFAULT_HEADER='use this to set a global header!'
+BROWSER="${BROWSER:-firefox}"
+BOOKMARK_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/bookmarks"
+touch "$BOOKMARK_FILE"
 
 ### define functions ###
 

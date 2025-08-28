@@ -18,9 +18,8 @@
 # exit 1 - no selection
 # exit 2 - error
 
-# RECOMMENDED: uncomment to set script specific defaults, or set globally
-# WALLPAPERS_DIR="$HOME/.local/share/wallpapers"
-# FZF_DEFAULT_HEADER='use this to set a global header!'
+WALLPAPERS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/wallpapers"
+mkdir -p "$AUTOSTART_DIR" # create directory if it doesn't already exist
 
 ### define functions ###
 
@@ -40,7 +39,7 @@ setWallpaper() {
 
 randomWallpaper() {
         WALLPAPER="$(\
-                find "$WALLPAPERS_DIR" -type f |
+                find "$WALLPAPERS_DIR" -type f -not -path '*/\.git/*' |
                 shuf -n 1
         )"
         if [ -n "$WALLPAPER" ]; then 
@@ -52,7 +51,7 @@ randomWallpaper() {
 
 selectWallpaper() {
         WALLPAPER="$(\
-                find "$WALLPAPERS_DIR" -type f -exec basename {} \; |
+                find "$WALLPAPERS_DIR" -type f -not -path '*/\.git/*' -exec basename {} \; |
                 sed "s/\.png$//;s/\.jpg$//;s/\.jpeg$//;" |
                 fzf \
                 --prompt "wallpaper: " \
