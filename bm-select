@@ -1,0 +1,114 @@
+#!/bin/sh
+#
+# summary: a simple posix script for selecting bookmarks
+# repository: https://github.com/hollowillow/scripts
+#
+# usage: bm-select [-h] [-fm arg]
+# options:
+#
+#       -f      specify which file to take bookmarks from, has to be a json file
+#               (default: $HOME/.local/state/bookmarks.json)
+#       -h      display this help message
+#       -m      specify menu util (default: sk or fzf, if installed sk has priority, 
+#               other tools that can read/print stdout are applicable ex.: dmenu, rofi)
+#       -q      specify a query pattern for yq/jq
+#               (default: .[].title)
+#
+# example usage: 
+#
+#       bm-select               prints selected bookmark(s) to the terminal
+#       firefox $(bm-select)    opens selected bookmark(s) in a new firefox window
+#       wl-copy $(bm-select)    copies selected bookmark(s) to clipboard (wayland)
+#       bm-select > output.txt  prints selected bookmark(s) to a file
+#
+# file specifications:
+#
+#       the provided json file has to contain a table of objects with the following
+#       elements (and can contain any other elements), in order to be parsed correctly:
+#
+#               title   string value displayed in the menu for searching
+#               link    string value that gets printed out when selection ends
+#
+#       if multiple objects have the same title value, prints link values for
+#       all of the objects.
+#
+# query specifications:
+#
+#       the query used can follow any pattern as long as it meets the following criteria:
+#       the value of title for any bookmark is printed at the beginning of a newline,
+#       followed by at most one space character and delimited from the rest of the
+#       output string by the "|" character
+#
+# dependencies: sk (or fzf), yq (or jq)
+
+# exit 0 - successful execution
+# exit 1 - error
+
+BOOKMARK_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/bookmarks.json"
+touch "$BOOKMARK_FILE"
+
+# set the default query
+QUERY='.[].title'
+# example for a file with a table of tags
+# QUERY='.[] | "\(.title) | \(.tags | join(", "))"' 
+
+### check dependencies ###
+
+# prioritise yq if installed
+if command -v yq >/dev/null 2>&1; then 
+        JQ="yq"
+elif command -v jq >/dev/null 2>&1; then
+        JQ="jq"
+else
+        printf '%s\n' "Error: dependency not found: jq or yq" >&2; exit 1
+fi
+
+# prioritise sk if installed
+if command -v sk >/dev/null 2>&1; then 
+        MENU="sk --multi"
+elif command -v fzf >/dev/null 2>&1; then
+        MENU="fzf --multi"
+else
+        printf '%s\n' "Error: dependency not found: fzf or sk" >&2; exit 1
+fi
+
+### parse options ###
+
+while getopts ":f:hm:q:" OPT >/dev/null >&2
+do
+        case "$OPT" in
+                f) if [ "$(file -b "$OPTARG")" = "JSON text data" ]; then
+                        BOOKMARK_FILE="$OPTARG";
+                   else
+                        printf '%s\n' "Error: not a valid JSON file: $OPTARG" >&2; exit 1
+                   fi;;
+                # creates help message from comment block head
+                h) sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0;;
+                m) MENU="$OPTARG";;
+                q) QUERY="$OPTARG";;
+                :) printf '%s\n' "Error: Option -""${OPTARG}"" requires an argument" >&2; exit 1;;
+                \?) printf '%s\n' "Error: Option -""${OPTARG}"" is not an option" >&2; exit 1;;
+        esac
+done
+
+### run code ###
+
+selectBookmarks() {
+        # get titles for searching
+        "$JQ" -r "$QUERY" "$BOOKMARK_FILE" | 
+                $MENU | cut -d'|' -f1 | sed 's/ $//'
+}
+
+getLinks() {
+        # iterate over all selected titles and get their links
+        printf '%s\n' "$1" |
+        while IFS= read -r TITLE; do
+                "$JQ" -r ".[] | select(.title == \"$TITLE\") | .link" "$BOOKMARK_FILE"
+        done
+}
+
+main() {
+        getLinks "$(selectBookmarks)"
+}
+
+main
