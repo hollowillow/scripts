@@ -1,0 +1,7 @@
+#!/bin/sh
+
+FZYQ_HIST_FILE="${XDG_STATE_HOME:-$HOME/.local/share}/fzyq_history"
+touch "$FZYQ_HIST_FILE"
+
+$MENU --bind="enter:become:yq {q} ${1} && (printf '%s\n' {q} >> $FZYQ_HIST_FILE)" \
+        --preview "sed '' ${1} | yq -C {q}" <"$FZYQ_HIST_FILE"
