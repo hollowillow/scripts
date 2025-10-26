@@ -1,90 +1,76 @@
 #!/bin/sh
 #
-# summary: a simple posix script for opening bookmarks
+# summary: a simple posix script for fuzzy searching bookmarks from a JSON file
 # repository: https://github.com/hollowillow/scripts
+# dependencies: yq (or jq), sk (or fzf)
 #
-# usage: bm-open [-hqrs] [-f arg]
-# options:
+# usage: bm-open [-h|--help] [arg]
+# file specifications:
 #
-#       -f      specify input/output file
-#       -h      display this help message
-#       -q      supress all output
-#       -r      reverse list order
-#       -s      sort alphabetically based on name field
+#       default file location is $XDG_STATE_HOME/bookmarks.json ($HOME/.local/state)
+#       this can be overriden by globally setting $BOOKMARK_FILE to the desired path.
+#       the file provided has to contain an array of objects, with the key "link". 
+#       the value of the key "link" is what gets printed by this script by default.
+#       the objects may contain any other elements.
 #
-# dependencies: fzf, wl-clipboard (wayland), xclip (x11), libnotify (optional)
+# example usage: 
+#
+#       bm-open                         outputs link(s) to the terminal
+#       bm-open hello world             uses "hello world" as initial query
+#       bm-open | xargs -r firefox      opens link(s) in a new firefox window
+#       bm-open | xargs -r wl-paste     copies selected link(s) to clipboard
 
 # exit 0 - successful execution
-# exit 1 - no selection
-# exit 2 - error
+# exit 1 - error
 
-BROWSER="${BROWSER:-firefox}"
-BOOKMARK_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/bookmarks"
+# create a help message from comment block at head of file
+if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
+        sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0
+fi
+
+# declare database file
+if [ -z "$BOOKMARK_FILE" ]; then
+    BOOKMARK_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/bookmarks.json"
+fi
 touch "$BOOKMARK_FILE"
+TMP_FILE="/tmp/fzbm.tmp"
+QUERY="$*"
 
-### define functions ###
+# prioritise yq if installed
+if command -v yq >/dev/null 2>&1; then 
+        JQ="yq"
+elif command -v jq >/dev/null 2>&1; then
+        JQ="jq"
+else
+        printf '%s\n' "$(basename "$0"): Error: dependency not found: jq or yq" >&2; exit 1
+fi
 
-sendFeedback() {
-        if [ -z "$QUIET" ]; then
-                printf '%s\n' "$1"; notify-send "$1"
-        fi
+# prioritise sk if installed
+if command -v sk >/dev/null 2>&1; then 
+        MENU="${MENU:-sk}"
+elif command -v fzf >/dev/null 2>&1; then
+        MENU="${MENU:-fzf}"
+else
+        printf '%s\n' "$(basename "$0"): Error: dependency not found: fzf or sk" >&2; exit 1
+fi
+
+selectBookmarks() {
+        "$JQ" -Cc '.[]' "$1" | 
+        "$MENU" \
+        --ansi --multi \
+        --preview-window="up" --preview="printf '%s\n' {} | $JQ -C ." \
+        --query="$QUERY" > "$TMP_FILE"
 }
 
-### parse options ###
+extractLinks() {
+        while IFS= read -r LINE; do
+                printf '%s\n' "$LINE" | "$JQ" -r '.link'
+        done < "$1"
+}
 
-while getopts ":f:hqrs" OPT >/dev/null >&2
-do
-        case "$OPT" in
-                f) if [ -f "$OPTARG" ]; then BOOKMARK_FILE="$OPTARG"; else sendFeedback "Error: \"$OPTARG\" is not a file" >&2; exit 2; fi;;
-                h) sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0;;
-                q) QUIET=true;;
-                r) REVERSE=true;;
-                s) SORT=true;;
-                :) sendFeedback "Error: Option -""${OPTARG}"" requires an argument"; exit 2;;
-                \?) sendFeedback "Error: Option -""${OPTARG}"" is not an option"; exit 2;;
-        esac
-done
+main() {
+        selectBookmarks "$BOOKMARK_FILE"
+        extractLinks "$TMP_FILE"
+}
 
-### check dependencies ###
-
-if [ "$(printenv XDG_SESSION_TYPE)" = wayland ]; then
-        set -- wl-copy
-elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ]; then
-        set -- xclip
-fi
-
-for DEPENDENCY in fzf "$@"
-do
-        if command -v "$DEPENDENCY" >/dev/null 2>&1; then true; else
-                sendFeedback "Error: dependency not found: $DEPENDENCY" >&2; exit 2
-        fi
-done
-
-if [ -z "$BOOKMARK_FILE" ]; then 
-        sendFeedback "Error: No file provided" >&2; exit 2
-fi
-
-### execute ###
-
-if [ "$(printenv XDG_SESSION_TYPE)" = wayland ]; then
-        COPY='enter:become:wl-copy {+1}'
-elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ]; then
-        COPY='enter:become:xclip -i -selection clipboard {+1}'
-fi
-
-if [ "$SORT" = true ] && [ "$REVERSE" = true ]; then
-        sed "/^#/ d;/^$/ d" "$BOOKMARK_FILE" | sort -t'|' -k2 -r
-elif [ "$SORT" = true ]; then
-        sed "/^#/ d;/^$/ d" "$BOOKMARK_FILE" | sort -t'|' -k2
-elif [ "$REVERSE" = true ]; then
-        sed "/^#/ d;/^$/ d" "$BOOKMARK_FILE"
-else
-        sed "/^#/ d;/^$/ d" "$BOOKMARK_FILE" | tac
-fi | fzf \
-        --prompt 'open: ' \
-        --header="$(printf '%s\n' 'enter:copy  ctrl-o:open-in-browser  ctrl-p:open-in-mpv' "$FZF_DEFAULT_HEADER")" \
-        --multi \
-        --delimiter="|" --with-nth="2,3" --accept-nth="1" \
-        --bind="$COPY" \
-        --bind='ctrl-o:become:nohup $BROWSER {+1} >/dev/null 2>&1 &' \
-        --bind='ctrl-p:become:nohup mpv {1} >/dev/null 2>&1 &' 
+main
