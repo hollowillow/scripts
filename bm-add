@@ -1,131 +1,104 @@
 #!/bin/sh
 #
-# summary: a simple posix script for saving bookmarks
+# summary: a simple posix script for adding bookmarks to a JSON database
 # repository: https://github.com/hollowillow/scripts
+# dependencies: yq (or jq)
 #
-# usage: bm-add [-hq] [-flnt arg]
-# options:
+# usage: bm-add [-h|--help] arg
+# example usage: 
 #
-#       -f      specify input/output file
-#       -h      display this help message
-#       -l      set link metadata field
-#       -n      set name metadata field
-#       -q      supress all output
-#       -t      set tags metadata field
+#       bm-add https://www.example.com  bookmarks link provided as argument
+#       bm-add "$(wl-paste)"            bookmarks link in clipboard
 #
-# dependencies: grep, fzf, wl-clipboard (wayland), xclip (x11), curl (optional), libnotify (optional)
+# configuration:
+#
+#       you can easily configure the keys and values you store within the script's
+#       main function, using the addKey and addArray helper functions. there
+#       are multiple examples already provided in the main function. 
+#       for correct behaviour with the default configuration, make sure to globally
+#       set $MENU to either fzf or sk.
 
 # exit 0 - successful execution
-# exit 1 - no selection
-# exit 2 - error
+# exit 1 - error
 
-BOOKMARK_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/bookmarks"
+if [ -z "$BOOKMARK_FILE" ]; then
+    BOOKMARK_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/bookmarks.json"
+fi
 touch "$BOOKMARK_FILE"
+TMP_FILE="/tmp/bm.tmp"
+OBJ_FILE="/tmp/bm.json"
 
-### define functions ###
-
-sendFeedback() {
-        if [ -z "$QUIET" ]; then
-                printf '%s\n' "$1"; notify-send "$1"
-        fi
-}
-
-parseName() {
-        NAME="${NAME:-"$(\
-                fzf \
-                --prompt "name: " \
-                --header="$(printf '%s\n' 'enter:print-query' "$FZF_DEFAULT_HEADER")" \
-                --print-query --query "$(curl -s "$LINK" | grep -o "<title>[^<]*" | cut -d'>' -f2)" \
-                </dev/null
-        )"}"
-        
-        if [ "$?" -eq 130 ]; then sendFeedback "No selection!"; exit 1; fi
-        if printf "%s" "$NAME" | grep -qF "\n" >/dev/null; then sendFeedback "Error: Illegal character in metadata: newline" >&2; exit 2; fi
-        case "$NAME" in
-                *\|*) sendFeedback "Error: Illegal character in metadata: |" >&2; exit 2;;
-                "") sendFeedback "Error: Name field required" >&2; exit 2;;
-        esac
-}
-
-parseTags() {
-        SELECTED="${TAGS:-"$(\
-                cut -d'|' -f3 "$BOOKMARK_FILE" |
-                cut -d',' -f1 |
-                sed "/^#/ d;/^$/ d;s/[ \t]*$//" |
-                tr ',' '\n' |
-                sort | uniq -i |
-                fzf \
-                --prompt "tags: " \
-                --header="$(printf '%s\n' 'enter:confirm  ctrl-o:print-query' "$FZF_DEFAULT_HEADER")" \
-                --multi \
-                --bind="ctrl-o:print-query" \
-        )"}"
-
-        if [ "$?" -eq 130 ]; then sendFeedback "No selection!" >&2; exit 1; fi
-        if printf "%s" "$SELECTED" | grep -qF "\n" >/dev/null; then sendFeedback "Error: Illegal character in metadata: newline" >&2; exit 2; fi
-        case "$SELECTED" in
-                *\|*) sendFeedback "Error: Illegal character in metadata: |" >&2; exit 2;;
-        esac
-
-        TAGS="$(printf '%s' "$SELECTED" | tr '\n' ',')"
-}
-
-parseLink() {
-        if [ "$(printenv XDG_SESSION_TYPE)" = wayland ]; then
-                LINK="${LINK:-"$(wl-paste)"}" 
-        elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ]; then
-                LINK="${LINK:-"$(xclip -o -selection clipboard)"}"
-        fi
-
-        LINK="$(printf '%s' "$LINK" | sed "s|http:|https:|")"
-
-        if printf "%s" "$LINK" | grep -qF "\n" >/dev/null; then sendFeedback "Error: Illegal character in metadata: newline" >&2; exit 2; fi
-        if grep -q "^$LINK" "$BOOKMARK_FILE"; then sendFeedback "Already bookmarked!"; exit 1; fi
-        case "$LINK" in
-                *\|*) sendFeedback "Error: Illegal character in metadata: |" >&2; exit 2;;
-                "") sendFeedback "Error: Link field required" >&2; exit 2;;
-        esac
-}
-
-### parse options ###
-
-while getopts ":f:hl:n:qt:" OPT >/dev/null >&2
-do
-        case "$OPT" in
-                f) if [ -f "$OPTARG" ]; then BOOKMARK_FILE="$OPTARG"; else sendFeedback "Error: \"$OPTARG\" is not a file" >&2; exit 2; fi;;
-                h) sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0;;
-                l) LINK="$OPTARG";;
-                n) NAME="$OPTARG";;
-                q) QUIET=true;;
-                t) TAGS="$OPTARG";;
-                :) sendFeedback "Error: Option -""${OPTARG}"" requires an argument"; exit 2;;
-                \?) sendFeedback "Error: Option -""${OPTARG}"" is not an option"; exit 2;;
-        esac
-done
-
-### check dependencies ###
-
-if [ "$(printenv XDG_SESSION_TYPE)" = wayland ]; then
-        set -- wl-paste
-elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ]; then
-        set -- xclip
+LINK="$1"
+if [ -z "$LINK" ]; then 
+        printf '%s\n' "$(basename "$0"): Error: no link provided" >&2; exit 1;
 fi
 
-for DEPENDENCY in "grep" fzf "$@"
-do
-        if command -v "$DEPENDENCY" >/dev/null 2>&1; then true; else
-                sendFeedback "Error: dependency not found: $DEPENDENCY" >&2; exit 2
-        fi
-done
-
-if [ -z "$BOOKMARK_FILE" ]; then 
-        sendFeedback "Error: No file provided" >&2; exit 2
+# prioritise yq if installed
+if command -v yq >/dev/null 2>&1; then 
+        JQ="yq"
+elif command -v jq >/dev/null 2>&1; then
+        JQ="jq"
+else
+        printf '%s\n' "$(basename "$0"): Error: dependency not found: jq or yq" >&2; exit 1
 fi
 
-### execute ###
+checkBookmark() {
+        # check if any object with the key already has the same value
+        VALUE="$("$JQ" --arg link "$1" 'select(.[].link == $link)' "$BOOKMARK_FILE")"
+        echo "$VALUE"
+        if [ -n "$VALUE" ]; then
+                printf '%s\n' "$1 already bookmarked"; exit 0
+        fi
+}
 
-parseLink
-parseName
-parseTags
-printf '%s\n' "$LINK|$NAME|$TAGS" >> "$BOOKMARK_FILE"
-sendFeedback "Bookmark \"$NAME\" added."
+initBookmark() {
+        # create an object file with the link and title elements
+        # "$JQ" -n ". += {\"link\": \"$1\", \"title\": \"$2\", \"tags\": []}" > "$TMP_FILE"
+        "$JQ" -n --arg link "$1" '{link: $link}' > "$OBJ_FILE"
+}
+
+addKey() {
+        # first arg is key, second is value
+        "$JQ" --arg key "$1" --arg value "$2" '(.[$key]) = $value' "$OBJ_FILE" > "$TMP_FILE" &&
+                mv "$TMP_FILE" "$OBJ_FILE"
+}
+
+addArray() {
+        # first arg is key, second is values separated by newlines
+        VALUES="$(printf "$2" | jq -Rs 'split("\n") | map(select(length > 0))')"
+        "$JQ" --arg key "$1" --argjson value "$VALUES" '(.[$key]) = $value' "$OBJ_FILE" > "$TMP_FILE" &&
+                mv "$TMP_FILE" "$OBJ_FILE"
+}
+
+importBookmark() {
+        # merge object file with main file
+        yq --slurpfile src "$OBJ_FILE" '. += $src' "$BOOKMARK_FILE" > "$TMP_FILE" &&
+                mv "$TMP_FILE" "$BOOKMARK_FILE"
+}
+
+main() {
+        checkBookmark "$LINK"
+        initBookmark "$LINK"
+
+        # CONFIGURATION
+
+        # adds title, automatically curls from link
+        addKey 'title' "$("$MENU" --print-query --query "$(curl -s "$LINK" |
+                grep -o '<title>.*</title>' | sed 's/<\/\?title>//g')" </dev/null)"
+
+        # gathers all tags already in the file and let's you choose them
+        addArray 'tags' "$("$JQ" -r '[.[].tags[]] | unique[]' "$BOOKMARK_FILE" | "$MENU" --multi)"
+
+        # adds a date field with desired formating
+        # addKey 'date' "$(date "+%y/%m/%d %H:%M:%S")"
+
+        # adds a randomly generated id
+        # addKey 'ID' "$(od -An -N2 /dev/urandom | sed 's/ //')"
+
+        # confirmation
+        if (printf '%s\n' "Yes" "No" | "$MENU" --prompt="confirm: " | grep "No"); then exit 0; fi
+
+        importBookmark && printf '%s\n' "$LINK succesfully bookmarked"; exit 0
+}
+
+main
