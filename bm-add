@@ -96,7 +96,7 @@ main() {
         # addKey 'ID' "$(od -An -N2 /dev/urandom | sed 's/ //')"
 
         # confirmation
-        if (printf '%s\n' "Yes" "No" | "$MENU" --prompt="confirm: " | grep "No"); then exit 0; fi
+        if ! (printf '%s\n' "Yes" "No" | "$MENU" --prompt="confirm: " | grep "Yes"); then exit 0; fi
 
         importBookmark && printf '%s\n' "$LINK succesfully bookmarked"; exit 0
 }
