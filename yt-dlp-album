@@ -1,0 +1,3 @@
+#!/bin/sh
+
+yt-dlp -o "%(playlist_index)s - %(title)s.%(ext)s" -x --audio-format best --no-keep-video "$1"
