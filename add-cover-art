@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Find the first cover image
+if [ -n "$1" ]; then
+        COVER="$1"
+else
+        COVER="$(find . -maxdepth 1 -type f -not -path '*/\.git/*' -name "*.jpeg" | head -n 1)"
+fi
+
+# Find all .opus files, excluding .git directories
+find . -maxdepth 1 -type f -not -path '*/\.git/*' -name "*.opus" | while IFS= read -r FILE; do
+    if [ -z "$COVER" ]; then
+        echo "No cover image found for $FILE"
+    else
+        opustags --set-cover "$COVER" "$FILE" -i
+    fi
+done
