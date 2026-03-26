@@ -14,8 +14,10 @@ if [ "$1" = "-h" ]; then
         sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0
 fi
 
-if pgrep -l -f term-menu | grep "$TERMINAL" >/dev/null >&2; then
-        kill "$(pgrep -l -f term-menu | grep "$TERMINAL" | cut -d' ' -f1)"
+if pgrep -l -f script.term_menu | grep "$TERMINAL" >/dev/null >&2; then
+        kill "$(pgrep -l -f script.term_menu | grep "$TERMINAL" | cut -d' ' -f1)"
 else
-        "$TERMINAL" --class "term-menu" -e "$SHELL" -i -c "$*" &
+        "$TERMINAL" --class='script.term_menu' -e "$SHELL" -i -c "$*" &
+        # "$TERMINAL" -e zsh -c "source ~/.zshenv &>/dev/null fmenu"
+        # eval fmenu
 fi
