@@ -33,5 +33,6 @@ fzf \
 
 # spawn detached program
 while IFS= read -r CMD; do
-        nohup "$CMD" >/dev/null 2>&1 &
+        setsid "$CMD" >/dev/null 2>&1 & disown
+        # nohup sh -c "$CMD >/dev/null 2>&1 &"
 done
