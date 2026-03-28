@@ -1,0 +1,35 @@
+#!/bin/sh
+
+image() {
+        if [ -z "$FZF_PREVIEW_COLUMNS" ]; then
+                kitten icat --clear --stdin no --transfer-mode memory </dev/null >/dev/tty
+                kitten icat --stdin no --transfer-mode memory --place "${w}x${h}@${x}x${y}" "$file" </dev/null >/dev/tty
+                exit 1
+        else
+                kitten icat --clear --stdin no --transfer-mode memory </dev/null >/dev/tty
+                kitten icat --stdin no --transfer-mode memory --place "${w}x${h}@${x}x${y}" "$file" </dev/null
+                exit 1
+        fi
+}
+
+json() {
+        jq --color-output . "$file"
+        exit 1
+}
+
+code() {
+        bat --color=always --theme="base16" "$file"
+        exit 1
+}
+
+file="$1"
+w="${2:-$FZF_PREVIEW_COLUMNS}"
+h="${3:-$FZF_PREVIEW_LINES}"
+x="${4:-0}"
+y="${5:-0}"
+
+case "$file" in
+        *.png | *.jpg | *.jpeg ) image;;
+        *.json) json;;
+        *) code;;
+esac
