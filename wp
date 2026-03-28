@@ -24,7 +24,7 @@ printHelp() {
 setWallpaper() {
         if [ "$(printenv XDG_SESSION_TYPE)" = wayland ]; then
                 pkill swaybg;
-                swaybg --image "$1" &
+                setsid swaybg --image "$1" & disown
         elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ]; then
                 fehbg --no-fehbg --bg-scale "$1" & exit 0
         fi
@@ -41,17 +41,13 @@ randomWallpaper() {
 }
 
 selectWallpaper() {
-        # strips files to basename without file extension for nicer searching
         SELECTED="$(\
-                find . -type f -not -path '*/\.git/*' -exec basename {} \; |
-                sed "s/\.png$//;s/\.jpg$//;s/\.jpeg$//;" |
-                fzf --prompt "wallpaper: "
+                find . -type f -not -path '*/\.git/*' |
+                fzf --prompt "wallpaper: " \
+                        --preview="previewer {}"
         )"
-        # gets back full path
-        WALLPAPER="$(find . -type f -name "*$SELECTED\.*")"
-        if [ -n "$WALLPAPER" ]; then 
-                pkill swaybg;
-                setWallpaper "$WALLPAPER";
+        if [ -n "$SELECTED" ]; then 
+                setWallpaper "$SELECTED";
                 printf '%s\n' "Set selected wallpaper"; exit 0
         else
                 sendFeedback "No file selected!"; exit 1
