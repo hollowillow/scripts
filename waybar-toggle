@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if pgrep -x waybar > /dev/null; then
+if pidof waybar > /dev/null; then
         pkill waybar
 else
         hyprctl dispatch exec waybar
