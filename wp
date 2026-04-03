@@ -1,65 +1,57 @@
 #!/bin/sh
 #
-# summary: a simple posix wrapper script for setting wallpapers
+# summary: a simple posix wrapper script for setting wallpapers on wayland
 # repository: https://github.com/hollowillow/scripts
 #
-# usage: wp [arg]
+# usage: wp arg
 # arguments: 
 #
 #       random  selects a random wallpaper
 #       select  fuzzy search to select wallpaper
-#       help    bring up this message
 #
-# dependencies: fzf, swaybg (wayland), fehbg (x11)
+# dependencies: fzf, fd (optional, faster), swaybg
 
-WALLPAPERS_DIR="${WALLPAPERS_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/wallpapers}"
+# creates a help message from comment block at the head of file
+printHelp() { sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0; }
+{ [ "$1" = '-h' ] || [ "$1" = '--help' ]; } && printHelp
+
+printErr() { printf "%s$(basename "$0"): Error: $1\n" >&2; exit 1; }
+for CMD in fzf swaybg; do
+        command -v "$CMD" >/dev/null || printErr "dependency not found: $CMD"
+done
+
+WALLPAPERS_DIR="${WALLPAPERS_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}/wallpapers}"
 mkdir -p "$WALLPAPERS_DIR" # create directory if it doesn't already exist
-cd "$WALLPAPERS_DIR" || { printf '%s\n' "Error: $WALLPAPERS_DIR not found"; exit 2; }
+cd "$WALLPAPERS_DIR" || printErr "wallpaper directory not found"
 
-printHelp() {
-        # creates a help message from comment block at the top of the file
-        sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0
-}
+if command -v fd >/dev/null 2>&1; then
+        WALLPAPERS=$(fd --color=always --type=f . 2>/dev/null | sort -u)
+else
+        WALLPAPERS=$(find . -not -path '*/\.git/*' -type f -printf '%P\n' 2>/dev/null | sort -u)
+fi
 
 setWallpaper() {
-        if [ "$(printenv XDG_SESSION_TYPE)" = wayland ]; then
-                pkill swaybg;
-                setsid swaybg --image "$1" & disown
-        elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ]; then
-                fehbg --no-fehbg --bg-scale "$1" & exit 0
-        fi
+        pkill swaybg
+        nohup swaybg --mode fill --image "./$1" >/dev/null 2>&1 &
 }
 
 randomWallpaper() {
-        WALLPAPER="$(find . -type f -not -path '*/\.git/*' | shuf -n 1)"
-        if [ -n "$WALLPAPER" ]; then 
-                setWallpaper "$WALLPAPER";
-                printf '%s\n' "Set random wallpaper.";
-        else
-                printf '%s\n' "No file selected."; exit 1
-        fi
+        SELECTED="$(printf '%s' "$WALLPAPERS" | sed -e 's/\x1b\[[0-9;]*m//g' | shuf -n 1)"
+        [ -n "$SELECTED" ] && setWallpaper "$SELECTED" && printf '%s\n' "Wallpaper set to: $SELECTED"
+        exit 0
 }
 
 selectWallpaper() {
-        SELECTED="$(\
-                find . -type f -not -path '*/\.git/*' |
-                fzf --prompt "wallpaper: " \
-                        --preview="previewer {}"
-        )"
-        if [ -n "$SELECTED" ]; then 
-                setWallpaper "$SELECTED";
-                printf '%s\n' "Set selected wallpaper"; exit 0
-        else
-                sendFeedback "No file selected!"; exit 1
-        fi
+        SELECTED="$(printf '%s' "$WALLPAPERS" | fzf --ansi --prompt "wallpaper: " --preview="previewer {}")"
+        [ -n "$SELECTED" ] && setWallpaper "$SELECTED" && printf '%s\n' "Wallpaper set to: $SELECTED"
+        exit 0
 }
 
 main() {
-        case $1 in
-                help|-h|--help) printHelp;;
+        case "$1" in
                 random) randomWallpaper;;
                 select) selectWallpaper;;
         esac
 }
 
-main "$@"
+main "$*"
