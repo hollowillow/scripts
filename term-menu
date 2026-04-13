@@ -4,20 +4,24 @@
 # repository: https://github.com/hollowillow/scripts
 #
 # usage: term-menu arg
-# takes any command as an argument and spawns said command in your
-# terminal with the special class term-menu.
-#
-# behaviour for the window class is up to configuration based on
-# your window manager or desktop environment.
+# description: spawn any command in a toggleable terminal with the class script.term_menu
 
-if [ "$1" = "-h" ]; then
-        sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0
-fi
+. _lib # library script with common functions and variables
+case "$1" in -h|-help|--help|help) printHelp ;; esac
+PID_FILE="/tmp/term-menu.pid"
 
-if pgrep -l -f script.term_menu | grep "$TERMINAL" >/dev/null >&2; then
-        kill "$(pgrep -l -f script.term_menu | grep "$TERMINAL" | cut -d' ' -f1)"
-else
-        "$TERMINAL" --class='script.term_menu' -e "$SHELL" -i -c "$*" &
-        # "$TERMINAL" -e zsh -c "source ~/.zshenv &>/dev/null fmenu"
-        # eval fmenu
-fi
+[ -z "$TERMINAL" ] && printErr \
+    "variable not set: TERMINAL" \
+    "set your desired terminal for this script by setting a TERMINAL env variable"
+
+[ -z "$*" ] && printErr \
+    "no argument" \
+    "try running 'term-menu help'"
+
+[ -f "$PID_FILE" ] &&
+    kill "$(cat "$PID_FILE")" 2>/dev/null &&
+    rm "$PID_FILE" &&
+    exit 0
+
+"$TERMINAL" --class='script.term_menu' -e "$@" >/dev/null 2>&1 &
+printf '%s' "$!" >"$PID_FILE" && exit 0
