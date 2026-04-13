@@ -3,55 +3,58 @@
 # summary: a simple posix wrapper script for setting wallpapers on wayland
 # repository: https://github.com/hollowillow/scripts
 #
-# usage: wp arg
-# arguments: 
+# usage: wp subcommand
+# subcommands: 
 #
 #       random  selects a random wallpaper
 #       select  fuzzy search to select wallpaper
 #
-# dependencies: fzf, fd (optional, faster), swaybg
+# dependencies: fzf, fd (optionally faster than find), swaybg (wayland), fehbg (X11)
 
-# creates a help message from comment block at the head of file
-printHelp() { sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0; }
-{ [ "$1" = '-h' ] || [ "$1" = '--help' ]; } && printHelp
-
-printErr() { printf "%s$(basename "$0"): Error: $1\n" >&2; exit 1; }
-for CMD in fzf swaybg; do
-        command -v "$CMD" >/dev/null || printErr "dependency not found: $CMD"
-done
+. _lib # library script with common functions and variables
+case "$1" in -h|-help|--help|help) printHelp ;; esac
+checkDependency "fzf" "swaybg"
 
 WALLPAPERS_DIR="${WALLPAPERS_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}/wallpapers}"
 mkdir -p "$WALLPAPERS_DIR" # create directory if it doesn't already exist
-cd "$WALLPAPERS_DIR" || printErr "wallpaper directory not found"
+cd "$WALLPAPERS_DIR" 2>/dev/null || printErr \
+    "wallpaper directory not found" \
+    "run the script again to create it"
 
-if command -v fd >/dev/null 2>&1; then
-        WALLPAPERS=$(fd --color=always --type=f . 2>/dev/null | sort -u)
-else
-        WALLPAPERS=$(find . -not -path '*/\.git/*' -type f -printf '%P\n' 2>/dev/null | sort -u)
-fi
+getPath() {
+    if command -v fd >/dev/null 2>&1; then
+        fd --color=always --type=f . 2>/dev/null | sort -u
+    else
+        find . -not -path '*/\.git/*' -type f -printf '%P\n' 2>/dev/null | sort -u
+    fi
+}
+
+randomWallpaper() { sed -e 's/\x1b\[[0-9;]*m//g' | shuf -n 1; }
+selectWallpaper() { fzf --ansi --prompt "wallpaper: " --preview="previewer {}"; }
 
 setWallpaper() {
-        pkill swaybg
-        nohup swaybg --mode fill --image "./$1" >/dev/null 2>&1 &
-}
-
-randomWallpaper() {
-        SELECTED="$(printf '%s' "$WALLPAPERS" | sed -e 's/\x1b\[[0-9;]*m//g' | shuf -n 1)"
-        [ -n "$SELECTED" ] && setWallpaper "$SELECTED" && printf '%s\n' "Wallpaper set to: $SELECTED"
-        exit 0
-}
-
-selectWallpaper() {
-        SELECTED="$(printf '%s' "$WALLPAPERS" | fzf --ansi --prompt "wallpaper: " --preview="previewer {}")"
-        [ -n "$SELECTED" ] && setWallpaper "$SELECTED" && printf '%s\n' "Wallpaper set to: $SELECTED"
-        exit 0
+    read -r IN
+    if [ "$XDG_SESSION_TYPE" = "wayland" ] &&
+        command -v swaybg >/dev/null 2>&1; then
+            kill "$(ps -eo pid,comm | grep swaybg | awk '{print $1}')"
+            setsid swaybg --mode fill --image "./$IN" >/dev/null 2>&1 &
+            exit 0
+    elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ] &&
+        command -v fehbg >/dev/null 2>&1; then
+            fehbg --no-fehbg --bg-scale "./$IN" & 
+            exit 0
+    else 
+        printErr \
+            "No suitable session or command found" \
+            "check if you have swaybg (wayland) or fehbg (x11) installed"
+    fi
 }
 
 main() {
-        case "$1" in
-                random) randomWallpaper;;
-                select) selectWallpaper;;
-        esac
+    case "$1" in
+            random) getPath | randomWallpaper | setWallpaper;;
+            select) getPath | selectWallpaper | setWallpaper;;
+    esac
 }
 
-main "$*"
+main "$@"
