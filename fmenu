@@ -3,33 +3,33 @@
 # summary: a simple posix script for launching programs with fzf
 # repository: https://github.com/hollowillow/scripts
 #
-# usage: fmenu [arg]
-# description:
+# usage: fmenu
+# description: FZF through all programs in $PATH and launch them.
 #
-#       FZF through all programs in $PATH and launch them.
-#       If an argument is provided, it is the initial query.
-#
-# dependencies: fzf, fd (optional, faster)
+# dependencies: fzf, fd (optionally faster than find)
 
-# creates a help message from comment block at the head of file
-printHelp() { sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0; }
-{ [ "$1" = '-h' ] || [ "$1" = '--help' ]; } && printHelp
+. _lib # library script with common functions and variables
+case "$1" in -h|-help|--help|help) printHelp ;; esac
+checkDependency "fzf"
 
-printErr() { printf "%s$(basename "$0"): Error: $1\n" >&2; exit 1; }
-command -v fzf >/dev/null || printErr "dependency not found: fzf"
-
-main() {
-        DIRS=$(printf '%s\n' "$PATH" | tr ':' '\n')
-
-        if command -v fd >/dev/null 2>&1; then 
-                CMDS=$(fd --follow --max-depth=1 --type=x --format='{/}' . $DIRS 2>/dev/null | sort -u)
-        else
-                CMDS=$(find -L $DIRS -maxdepth 1 -executable -type f -printf '%f\n' 2>/dev/null | sort -u)
-        fi
-
-        SELECTED=$(printf '%s\n' "$CMDS" | fzf --prompt='run: ' --query="$*" )
-
-        [ -n "$SELECTED" ] && setsid "$SELECTED" >/dev/null 2>&1
+getPath() {
+    IFS=:
+    if command -v fd >/dev/null 2>&1; then 
+        fd --follow --max-depth=1 --type=x --format='{/}' . $PATH 2>/dev/null | sort -u
+    else
+        find -L $PATH -maxdepth 1 -executable -type f -printf '%f\n' 2>/dev/null | sort -u
+    fi
 }
 
-main "$*"
+openMenu() { fzf --prompt='run: '; }
+
+runCommand() {
+    read -r IN
+    [ -n "$IN" ] && setsid "$IN" >/dev/null 2>&1
+}
+
+main() {
+    getPath | openMenu | runCommand
+}
+
+main
