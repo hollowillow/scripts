@@ -1,0 +1,49 @@
+#!/bin/sh
+
+ESC='\033['; RESET="${ESC}0m"
+BOLD="${ESC}1m"; DIM="${ESC}2m"; ITALIC="${ESC}3m"; UNDERLINE="${ESC}4m"
+
+BLACK="${ESC}30m"; RED="${ESC}31m"; GREEN="${ESC}32m"; YELLOW="${ESC}33m"
+BLUE="${ESC}34m"; MAGENTA="${ESC}35m"; CYAN="${ESC}36m"; WHITE="${ESC}37m"
+
+BR_BLACK="${ESC}90m"; BR_RED="${ESC}91m"; BR_GREEN="${ESC}92m"; BR_YELLOW="${ESC}93m"
+BR_BLUE="${ESC}94m"; BR_MAGENTA="${ESC}95m"; BR_CYAN="${ESC}96m"; BR_WHITE="${ESC}97m"
+
+printHelp() {
+        # get only the comment block at top of file
+        # make the summary and repository lines less vibrant
+        # highlight all "keyword:" strings
+        # highlight the first word on a whitespace tabbed line
+        sed \
+                -e "1,2d;s/^# //;s/^#$/ /;/^$/ q" \
+                -e "3,4s/^/\\${DIM}/;3,4s/\$/\\${RESET}/" \
+                -e "5,\$s/\\([[:alnum:]_][-[:alnum:]_]*:\\)/\\${BOLD}\\${BLUE}\\1\\${RESET}/g" \
+                -e "4,\${/^[[:space:]]\+/s/^\([[:space:]]\+\)\([[:alnum:]_-][[:alnum:]_-]*\)/\1\\${ITALIC}\\${MAGENTA}\2\\${RESET}/}" \
+        "$0" |
+        while IFS= read -r line; do
+                printf '%b\n' "$line"
+        done
+        exit 0
+}
+
+# printHelp() { sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0; }
+
+printErr() { 
+    ERR_MSG="$1"; HINT_MSG="$2";
+    printf '%b\n\n\t%b\n' \
+        "${RED}$(basename "$0"): Error:${RESET} ${ERR_MSG}" \
+        "${MAGENTA}${HINT_MSG}${RESET}" >&2; exit 1
+}
+
+checkDependency() {
+    for CMD in "$@"; do
+        command -v "$CMD" >/dev/null ||\
+            printErr "dependency not found: $CMD" "check if you have '$CMD' installed"
+    done
+}
+
+detach() {
+    setsid "$*" >/dev/null 2>&1 &
+}
+
+confirmSelection() { printf 'Yes\nNo' | fzf --prompt='confirm: '; }
