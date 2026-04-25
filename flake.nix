@@ -5,17 +5,31 @@
     outputs = { self , nixpkgs ,... }: let
         system = "x86_64-linux";
     in {
-        devShells."${system}".default = let
-            pkgs = import nixpkgs { inherit system; };
-        in pkgs.mkShell {
-            packages = with pkgs; [
-                shellcheck
-                bash-language-server
-                dash
-            ];
-            shellHook = ''
-                exec fish
-            '';
+        devShells."${system}" = {
+            default = let
+                pkgs = import nixpkgs { inherit system; };
+            in pkgs.mkShell {
+                packages = with pkgs; [
+                    shellcheck
+                    dash
+                ];
+                shellHook = ''
+                    exa -lah
+                    git status
+                    exec fish
+                '';
+            };
+            nvim = let
+                pkgs = import nixpkgs { inherit system; };
+            in pkgs.mkShell {
+                packages = with pkgs; [
+                    shellcheck
+                    bash-language-server
+                ];
+                shellHook = ''
+                    exec fish -c nvim
+                '';
+            };
         };
     };
 }
