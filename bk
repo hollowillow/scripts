@@ -1,0 +1,118 @@
+#!/bin/sh
+#
+# summary: a simple posix script for bookmarking
+# repository: https://github.com/hollowillow/scripts
+#
+# usage: bk subcommand
+# subcommands:
+#
+#       init    create a database
+#       search  fzf through all bookmarks
+#       add     add a new bookmark
+#
+# dependencies: sqlite
+
+. _lib # library script with common functions and variables
+BOOKMARKS_FILE="${BOOKMARKS_FILE:-${XDG_DATA_HOME:-$HOME/.local/share}/bm.db}"
+case "$1" in -h|-help|--help|help) printHelp ;; esac
+
+sqlite3 "$BOOKMARKS_FILE" \
+"
+CREATE TABLE IF NOT EXISTS bookmarks (
+    id INTEGER PRIMARY KEY,
+    url TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS bookmark_tags (
+    bookmark_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (bookmark_id, tag_id),
+    FOREIGN KEY (bookmark_id) REFERENCES bookmarks(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+);
+"
+[ -f "$BOOKMARKS_FILE" ] || printErr "No database file found" "try running the script again to create it"
+
+printBookmarks() {
+        sqlite3 -separator '|' "$BOOKMARKS_FILE" "
+        SELECT 
+                b.*, 
+                COALESCE(GROUP_CONCAT(t.name, ','), '') AS tags
+        FROM bookmarks b
+        LEFT JOIN bookmark_tags bt ON bt.bookmark_id = b.id 
+        LEFT JOIN tags t ON bt.tag_id = t.id
+        GROUP BY b.id
+        ORDER BY b.id DESC;
+        "
+}
+
+printPretty() {
+        printBookmarks | awk -F'|' '{ OFS="|"; print $3,$4,$2 }' |\
+        while IFS='|' read -r f1 f2 f3; do
+                printf '%b|%b|%b\n' \
+                        "${BLUE}${f1}${RESET}" \
+                        "${GREEN}${f2}${RESET}" \
+                        "${ITALIC}${BR_BLACK}${f3}${RESET}"
+        done | sed 's/|/ /g; s/^ //; s/ $//'
+}
+
+searchBookmarks() {
+        printPretty | fzf --ansi --multi |\
+                awk -F' ' -v N="1" '{ idx=NF-N+1; if(idx<1) idx=1; print $idx }'
+}
+
+printTags() {
+        sqlite3 "$BOOKMARKS_FILE" "SELECT GROUP_CONCAT(name, ',') FROM tags;"
+}
+
+addBookmark() {
+        url="$1"; title="$2"; tags="$3"
+        esc() { printf '%s' "$1" | sed "s/'/''/g"; }
+
+        [ -n "$url" ] || { printf "URL: "; read url; }; url=$(esc "$url")
+        [ -n "$title" ] || { printf "Title: "; read title; }; title=$(esc "$title")
+
+        sql=$(printf "BEGIN;\nINSERT INTO bookmarks(url, title) VALUES('$url','$title') RETURNING id;\nCOMMIT;")
+        bookmark_id=$( printf "%s" "$sql" | sqlite3 "$BOOKMARKS_FILE" 2>/dev/null)
+
+        tags_list="$(printTags)"
+        [ -n "$tags" ] || { printf '%s\n' "Existing tags: $tags_list" "Tags (comma separated, leave empty for none): "; read tags; }
+
+        [ -z "$bookmark_id" ] && { echo "Failed to insert bookmark."; exit 0; }
+
+        if [ -n "$tags" ]; then
+                # build SQL to insert/ignore tags and bookmark_tags
+                sql="BEGIN; "
+                tags="$(printf '%s' "$tags" | tr ',' ' ')"
+                for tag in $tags; do
+                        tag=$(esc "$tag")
+                        sql="$sql""INSERT OR IGNORE INTO tags(name) VALUES('$tag'); "
+                        sql="$sql""INSERT OR IGNORE INTO bookmark_tags(bookmark_id, tag_id) VALUES($bookmark_id, (SELECT id FROM tags WHERE name = '$tag')); "
+                done
+                sql="$sql""COMMIT;"
+                printf "%s" "$sql" | sqlite3 "$BOOKMARKS_FILE"
+        fi
+}
+
+interactiveAdd() {
+        curl="$(curl -s "$(wl-paste)" | grep -o '<title>.*</title>' | sed 's/<\/\?title>//g')"
+        addBookmark \
+                "$(wl-paste)" \
+                "$(fzf --print-query --query="$curl" </dev/null)" \
+                "$(bk tags | tr ',' '\n' | fzf --multi)"
+}
+
+case "$1" in
+        search) searchBookmarks;;
+        print) printBookmarks;;
+        pretty) printPretty;;
+        add) shift; addBookmark "$@";;
+        tags) printTags;;
+        interactive) interactiveAdd;;
+        "") searchBookmarks;;
+        *) printErr "no subcommand: $1" "try running 'bk help' for available subcommands";;
+esac
