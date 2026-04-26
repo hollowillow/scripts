@@ -13,7 +13,7 @@
 
 . _lib # library script with common functions and variables
 case "$1" in -h|-help|--help|help) printHelp ;; esac
-checkDependency "fzf" "swaybg"
+checkDependency "fzf"
 
 WALLPAPERS_DIR="${WALLPAPERS_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}/wallpapers}"
 mkdir -p "$WALLPAPERS_DIR" # create directory if it doesn't already exist
@@ -38,6 +38,7 @@ setWallpaper() {
         command -v swaybg >/dev/null 2>&1; then
             kill "$(ps -eo pid,comm | grep swaybg | awk '{print $1}')"
             setsid swaybg --mode fill --image "./$IN" >/dev/null 2>&1 &
+            ln -sf "$IN" "./current-wp"
             exit 0
     elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ] &&
         command -v fehbg >/dev/null 2>&1; then

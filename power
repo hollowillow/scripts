@@ -5,31 +5,33 @@
 #
 # usage: power
 #
-# depedencies: systemctl, exit-hyprland (optional script for log out)
+# depedencies: systemctl, exit-hyprland (optional script for log out), hyprlock (optional)
 
-# creates a help message from comment block at the head of file
-printHelp() { sed "1,2d;s/^# //;s/^#$/ /;/^$/ q" "$0"; exit 0; }
-{ [ "$1" = "-h" ] || [ "$1" = "--help" ]; } && printHelp
+. _lib # library script with common functions and variables
+case "$1" in -h|-help|--help|help) printHelp ;; esac
+checkDependency "systemctl"
 
-printErr() { printf "%s$(basename "$0"): Error: $1\n" >&2; exit 1; }
-command -v systemctl >/dev/null || printErr "dependency not found: systemctl"
+getOptions() {
+    OPTIONS="Power Off\nReboot\nSuspend\nHibernate\n"
+    command -v exit-hyprland >/dev/null && OPTIONS="$OPTIONS""Log Out\n"
+    command -v hyprlock >/dev/null && OPTIONS="$OPTIONS""Lock\n"
+    printf '%b' "$OPTIONS"
+}
 
+openMenu() {
+    fzf --prompt 'power: '
+}
 
 main() {
-        # items will be presented in the order they appear here
-        OPTIONS="Power Off\nReboot\nSuspend\nHibernate\nLog Out\n"
-        SELECTED="$(printf "$OPTIONS" | fzf --prompt 'power: ')"
-        [ -z "$SELECTED" ] && exit 0
-
-        # confirm selected invocation can be removed to skip confirmation per option
-        confirmSelection() { printf 'Yes\nNo' | fzf --prompt='confirm: '; }
-        case "$SELECTED" in
-                "Power Off") [ "$(confirmSelection)" = "Yes" ] && systemctl poweroff;;
-                "Reboot") [ "$(confirmSelection)" = "Yes" ] && systemctl reboot;;
-                "Suspend") [ "$(confirmSelection)" = "Yes" ] && systemctl suspend;;
-                "Hiberate") [ "$(confirmSelection)" = "Yes" ] && systemctl hibernate;;
-                "Log Out") [ "$(confirmSelection)" = "Yes" ] && exit-hyprland;;
-        esac
+    # confirm selected invocation can be removed to skip confirmation per option
+    case "$(getOptions | openMenu)" in
+        "Power Off") [ "$(confirmSelection)" = "Yes" ] && systemctl poweroff;;
+        "Reboot") [ "$(confirmSelection)" = "Yes" ] && systemctl reboot;;
+        "Suspend") [ "$(confirmSelection)" = "Yes" ] && systemctl suspend;;
+        "Hiberate") [ "$(confirmSelection)" = "Yes" ] && systemctl hibernate;;
+        "Log Out") [ "$(confirmSelection)" = "Yes" ] && exit-hyprland;;
+        "Lock") [ "$(confirmSelection)" = "Yes" ] && hyprlock;;
+    esac
 }
 
 main
