@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# Loop through all files in the provided directory
+for file in "$1"/*; do
+    # Check if it's a regular file (skips directories)
+    if [ -f "$file" ]; then
+        echo "Processing: $file"
+        # mkvpropedit "$file" --parse-mode fast \
+        #         --edit track:a1 --set flag-default=0 \
+        #         --edit track:a2 --set flag-default=1 \
+        #         --edit track:s1 --set flag-default=1
+        mkvmerge -o ./output/"$file" \
+                --audio-tracks 1,3 \
+                --subtitle-tracks 5,6,7,18 \
+                "$file" &&
+        mkvpropedit ./output/"$file" --parse-mode fast \
+                --edit track:a1 --set flag-default=1 \
+                --edit track:s1 --set flag-default=1 \
+                --edit track:s2 --set flag-default=0
+    fi
+done
