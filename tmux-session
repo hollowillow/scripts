@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# summary:
+# repository: https://github.com/hollowillow/scripts
+#
+# usage:
+# description:
+
+. _lib # library script with common functions and variables
+case "$1" in -h|-help|--help|help) printHelp ;; esac
+SESSIONS_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/tmux-sessions.json"
+
+SESSION_NAME="$1"
+if [ -z "$SESSION_NAME" ]; then
+    SESSION_NAME="$(jq -r ".[].name" "$SESSIONS_CONFIG" | fzf)"
+fi
+
+initSession() {
+    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        printf '%s\n' "Session $SESSION_NAME already exists. Attaching to it."
+        tmux attach-session -t "$SESSION_NAME"
+    else
+        tmux new-session -d -s "$SESSION_NAME"
+    fi
+}
+
+initCommands() {
+    WINDOW_NAME="$1"
+    COMMANDS="$(jq -r ".[] | select(.name == \"$SESSION_NAME\").windows[] | select(.name == \"$WINDOW_NAME\").commands[]" "$SESSIONS_CONFIG")"
+    IFS=$(printf '\n')
+    for COMMAND in $COMMANDS; do
+        tmux send-keys -t "$SESSION_NAME":"$WINDOW_NAME" "$COMMAND" C-m
+    done
+}
+
+initWindows() {
+    NAMES="$(jq -r ".[] | select(.name == \"$SESSION_NAME\") | .windows[].name" "$SESSIONS_CONFIG")"
+    for WINDOW_NAME in $NAMES; do
+        tmux new-window -t "$SESSION_NAME" -n "$WINDOW_NAME"
+        initCommands "$WINDOW_NAME"
+    done
+    tmux kill-window -t1
+}
+
+if ! jq ".[] | select(.name == \"$SESSION_NAME\")" "$SESSIONS_CONFIG" | grep --quiet .; then
+    echo no
+else
+    initSession
+    initWindows
+    tmux select-window -t "$SESSION_NAME":1
+    tmux attach-session -t "$SESSION_NAME"
+fi
