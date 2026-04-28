@@ -9,9 +9,7 @@ usage that falls under the terms of this license is welcome and encouraged.
 > [!WARNING]
 > This repository is currently undergoing a massive change in code structure and readability. The following documentation
 > applies only to the specified scripts bellow
-> - fmenu
-> - term-menu
-> - wp
+> - float-term
 
 ## USAGE
 Clone the scripts within this repository into your $PATH and make sure the files have the necessary permissions for execution.

@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# repository: https://github.com/hollowillow/scripts
+#
+# spawn a terminal then execute the command passed to it, kill it on rerun
+# floating behaviour needs to be configured on a per window manager basis
+
+. _lib # library script with common functions and variables
+case "$1" in -h|-help|--help|help) printHelp ;; esac
+
+[ -z "$*" ] && printErr \
+    "no argument" \
+    "try running 'term-menu help'"
+
+[ -z "${TERMINAL}" ] && printErr \
+    "variable not set: TERMINAL" \
+    "set the 'TERMINAL' environment variable to determine your prefered terminal"
+
+cmd="$*"
+term="${TERMINAL}"
+class="dev.hollowillow.floatTerm"
+
+pkill -f "${class}" && exit 0 # enables toggle functionality
+"${term}" --class="${class}" -e sh -c "${cmd}" >/dev/null 2>&1
