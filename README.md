@@ -17,7 +17,7 @@ Clone the scripts within this repository into your $PATH and make sure the files
 ```
 git clone https://github.com/hollowillow/scripts
 cd scripts
-chmod u+x .
+chmod u+x ./*
 ```
 
 > [!CAUTION]
@@ -37,6 +37,10 @@ Any other variables that may be set to globally edit the behaviour of scripts wi
 ## DOCUMENTATION
 At the start each script file is a comment block that provides basic necessary information for using said script.
 This same comment block may also be printed to the terminal by using the `-h` or `--help` flag the script.
+
+### SYNTAX
+This repository follows most of the syntax guidelines specified in [Google's Shell Style Guide](https://google.github.io/styleguide/shellguide.html)
+with notable exceptions being 4 space indentation and preferring POSIX compliancy where applicable.
 
 ### EXIT CODES
 | exit code | meaning |
