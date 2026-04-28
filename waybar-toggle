@@ -1,7 +1,0 @@
-#!/bin/sh
-
-if pidof waybar > /dev/null; then
-        pkill waybar
-else
-        hyprctl dispatch exec waybar
-fi
