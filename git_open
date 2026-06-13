@@ -1,0 +1,6 @@
+#!/bin/sh
+
+url=$(git remote get-url origin | sed 's|git@github.com:|https://github.com/|')
+if [ -n "$url" ]; then
+    xdg-open $url
+fi
