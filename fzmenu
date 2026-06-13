@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# repository: https://github.com/hollowillow/scripts
+#
+# launch programs from path via fzf
+
+. _lib # library script with common functions and variables
+case "$1" in -h|-help|--help|help) printHelp ;; esac
+checkDependency "fzf"
+
+getPath() {
+    local IFS=:
+    if command -v fd >/dev/null 2>&1; then 
+        fd --follow --max-depth=1 --type=x --format='{/}' . ${PATH} 2>/dev/null | sort -u
+    else
+        find -L ${PATH} -maxdepth 1 -executable -type f -printf '%f\n' 2>/dev/null | sort -u
+    fi
+}
+
+openMenu() { fzf --prompt='run: '; }
+
+runCommand() {
+    read -r IN
+    [ -n "${IN}" ] && setsid "${IN}" >/dev/null 2>&1
+}
+
+main() {
+    getPath | openMenu | runCommand
+}
+
+main
