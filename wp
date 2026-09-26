@@ -9,11 +9,11 @@
 #       random  selects a random wallpaper
 #       select  fuzzy search to select wallpaper
 #
-# dependencies: fzf, fd (optionally faster than find), swaybg (wayland), fehbg (X11)
+# dependencies: rofi, fd, aww
 
 . _lib # library script with common functions and variables
 case "$1" in -h|-help|--help|help) printHelp ;; esac
-checkDependency "fzf"
+checkDependency "rofi"
 
 WALLPAPERS_DIR="${WALLPAPERS_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}/wallpapers}"
 mkdir -p "$WALLPAPERS_DIR" # create directory if it doesn't already exist
@@ -21,40 +21,43 @@ cd "$WALLPAPERS_DIR" 2>/dev/null || printErr \
     "wallpaper directory not found" \
     "run the script again to create it"
 
-getPath() {
-    if command -v fd >/dev/null 2>&1; then
-        fd --color=always --type=f . 2>/dev/null | sort -u
-    else
-        find . -not -path '*/\.git/*' -type f -printf '%P\n' 2>/dev/null | sort -u
-    fi
+getPaths() {
+    fd \
+        --type f \
+        --glob '*.{jpg,jpeg,png,webp,gif,bmp,avif}' \
+        --absolute-path \
+        . "$WALLPAPERS_DIR" 2>/dev/null
 }
 
-randomWallpaper() { sed -e 's/\x1b\[[0-9;]*m//g' | shuf -n 1; }
-selectWallpaper() { fzf --ansi --prompt "wallpaper: " --preview="previewer {}"; }
+selectWallpaper() {
+    while IFS= read -r IN; do
+        REL_PATH=${IN#"$WALLPAPERS_DIR"/}
+        printf '%s\000icon\037%s\n' "$REL_PATH" "$IN"
+    done |
+    rofi \
+        -dmenu \
+        -show-icons \
+        -theme "$HOME/.config/rofi/themes/image.rasi"
+}
 
 setWallpaper() {
     read -r IN
-    if [ "$XDG_SESSION_TYPE" = "wayland" ] &&
-        command -v swaybg >/dev/null 2>&1; then
-            kill "$(ps -eo pid,comm | grep swaybg | awk '{print $1}')"
-            setsid swaybg --mode fill --image "./$IN" >/dev/null 2>&1 &
-            ln -sf "$IN" "./current-wp"
-            exit 0
-    elif [ "$(printenv XDG_SESSION_TYPE)" = x11 ] &&
-        command -v fehbg >/dev/null 2>&1; then
-            fehbg --no-fehbg --bg-scale "./$IN" & 
-            exit 0
-    else 
-        printErr \
-            "No suitable session or command found" \
-            "check if you have swaybg (wayland) or fehbg (x11) installed"
-    fi
+    ([ "$XDG_SESSION_TYPE" = "wayland" ] && command -v awww >/dev/null 2>&1) || exit 1
+    awww img \
+        --resize=crop \
+        --transition-type=grow \
+        --transition-pos=top \
+        --transition-step=5 \
+        --transition-fps=144 \
+        "$IN"
+    ln -sf "$IN" "${WALLPAPERS_DIR}/current-wp"
 }
 
 main() {
     case "$1" in
-            random) getPath | randomWallpaper | setWallpaper;;
-            select) getPath | selectWallpaper | setWallpaper;;
+            random) getPaths | shuf -n1 | setWallpaper;;
+            select) getPaths | sort -u | selectWallpaper | xargs -I {} realpath {} | setWallpaper;;
+            set) realpath "$2" | setWallpaper ;;
     esac
 }
 
