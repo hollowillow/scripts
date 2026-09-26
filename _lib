@@ -9,6 +9,9 @@ BLUE="${ESC}34m"; MAGENTA="${ESC}35m"; CYAN="${ESC}36m"; WHITE="${ESC}37m"
 BR_BLACK="${ESC}90m"; BR_RED="${ESC}91m"; BR_GREEN="${ESC}92m"; BR_YELLOW="${ESC}93m"
 BR_BLUE="${ESC}94m"; BR_MAGENTA="${ESC}95m"; BR_CYAN="${ESC}96m"; BR_WHITE="${ESC}97m"
 
+YES=" Yes"
+NO=" No"
+
 printHelp() {
         # get only the comment block at top of file
         # make the summary and repository lines less vibrant
@@ -46,4 +49,6 @@ detach() {
     setsid "$*" >/dev/null 2>&1 &
 }
 
-confirmSelection() { printf 'Yes\nNo' | fzf --prompt='confirm: '; }
+confirmSelection() {
+    printf '%b' "$YES\n$NO" | rofi -dmenu -theme ~/.config/rofi/themes/confirm.rasi;
+}
