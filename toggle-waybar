@@ -5,4 +5,4 @@
 # spawns waybar if it isn't running, kills it if it is
 
 pkill -fx waybar && exit 0
-hyprctl dispatch exec waybar
+waybar &
