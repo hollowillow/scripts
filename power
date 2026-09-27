@@ -5,32 +5,34 @@
 #
 # usage: power
 #
-# depedencies: systemctl, exit-hyprland (optional script for log out), hyprlock (optional)
+# depedencies: systemctl, exit-hyprland (optional script for log out)
 
 . _lib # library script with common functions and variables
 case "$1" in -h|-help|--help|help) printHelp ;; esac
 checkDependency "systemctl"
 
-getOptions() {
-    OPTIONS="Power Off\nReboot\nSuspend\nHibernate\n"
-    command -v exit-hyprland >/dev/null && OPTIONS="$OPTIONS""Log Out\n"
-    command -v hyprlock >/dev/null && OPTIONS="$OPTIONS""Lock\n"
-    printf '%b' "$OPTIONS"
-}
+HIBERNATE="󰒲 Hibernate"
+LOCK=" Lock"
+LOGOUT="󰍂 Log Out"
+POWER="⏻ Power Off"
+REBOOT=" Reboot"
+SUSPEND=" Suspend"
 
-openMenu() {
-    fzf --prompt 'power: '
-}
+# set your prefered ordering
+OPTIONS="$LOCK\n$POWER\n$REBOOT\n$HIBERNATE\n$SUSPEND\n$LOGOUT"
 
 main() {
-    # confirm selected invocation can be removed to skip confirmation per option
-    case "$(getOptions | openMenu)" in
-        "Power Off") [ "$(confirmSelection)" = "Yes" ] && systemctl poweroff;;
-        "Reboot") [ "$(confirmSelection)" = "Yes" ] && systemctl reboot;;
-        "Suspend") [ "$(confirmSelection)" = "Yes" ] && systemctl suspend;;
-        "Hiberate") [ "$(confirmSelection)" = "Yes" ] && systemctl hibernate;;
-        "Log Out") [ "$(confirmSelection)" = "Yes" ] && exit-hyprland;;
-        "Lock") [ "$(confirmSelection)" = "Yes" ] && hyprlock;;
+    SELECT=$(printf '%b' "$OPTIONS" | rofi -dmenu -theme ~/.config/rofi/themes/small.rasi)
+    [ -n "$SELECT" ] || return
+    [ "$(confirmSelection)" = "$YES" ] || return
+
+    case "$SELECT" in
+        "$HIBERNATE") systemctl hibernate;;
+        "$LOCK") loginctl lock-session;;
+        "$LOGOUT") exit-hyprland;;
+        "$POWER") systemctl poweroff;;
+        "$REBOOT") systemctl reboot;;
+        "$SUSPEND") systemctl suspend;;
     esac
 }
 
