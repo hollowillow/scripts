@@ -1,1 +1,4 @@
 .direnv/
+*.md
+!README.md
+!LICENSE.md
