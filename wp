@@ -55,9 +55,9 @@ setWallpaper() {
 
 main() {
     case "$1" in
-            random) getPaths | shuf -n1 | setWallpaper;;
-            select) getPaths | sort -u | selectWallpaper | xargs -I {} realpath {} | setWallpaper;;
-            set) realpath "$2" | setWallpaper ;;
+        random) getPaths | shuf -n1 | setWallpaper;;
+        select) getPaths | sort -u | selectWallpaper | xargs -I {} realpath {} | setWallpaper;;
+        set) realpath "$2" | setWallpaper ;;
     esac
 }
 
