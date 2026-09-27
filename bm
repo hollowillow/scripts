@@ -37,24 +37,42 @@ CREATE TABLE IF NOT EXISTS bookmark_tags (
     FOREIGN KEY (bookmark_id) REFERENCES bookmarks(id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
-"
-[ -f "$BOOKMARKS_FILE" ] || printErr "No database file found" "try running the script again to create it"
-
-printBookmarks() {
-    sqlite3 -separator '|' "$BOOKMARKS_FILE" "
+CREATE VIEW IF NOT EXISTS default_view AS
     SELECT 
         b.*, 
         COALESCE(GROUP_CONCAT(t.name, ','), '') AS tags
     FROM bookmarks b
-    LEFT JOIN bookmark_tags bt ON bt.bookmark_id = b.id 
-    LEFT JOIN tags t ON bt.tag_id = t.id
+    LEFT JOIN bookmark_tags bt 
+        ON bt.bookmark_id = b.id 
+    LEFT JOIN tags t 
+        ON bt.tag_id = t.id
     GROUP BY b.id
     ORDER BY b.id DESC;
-    "
+CREATE VIEW IF NOT EXISTS pretty_view AS
+    SELECT
+        b.title AS title,
+        COALESCE(GROUP_CONCAT(t.name, ','), '') AS tags,
+        b.url AS url
+    FROM bookmarks AS b
+    LEFT JOIN bookmark_tags AS bt
+        ON bt.bookmark_id = b.id
+    LEFT JOIN tags AS t
+        ON t.id = bt.tag_id
+    GROUP BY
+        b.id,
+        b.title,
+        b.url
+    ORDER BY b.id DESC
+"
+[ -f "$BOOKMARKS_FILE" ] ||
+    printErr "No database file found" "try running the script again to create it"
+
+printBookmarks() {
+    sqlite3 -separator '|' "$BOOKMARKS_FILE" "SELECT * FROM default_view;"
 }
 
 printPretty() {
-    printBookmarks | awk -F'|' '{ OFS="|"; print $3,$4,$2 }' |\
+    sqlite3 -separator '|' "$BOOKMARKS_FILE" "SELECT * FROM pretty_view;" |\
     while IFS='|' read -r f1 f2 f3; do
         printf '%b|%b|%b\n' \
             "${BLUE}${f1}${RESET}" \
@@ -64,7 +82,7 @@ printPretty() {
 }
 
 searchBookmarks() {
-    printPretty | fzf --ansi --multi |\
+    fzf --ansi --multi |\
         awk -F' ' -v N="1" '{ idx=NF-N+1; if(idx<1) idx=1; print $idx }'
 }
 
@@ -110,12 +128,12 @@ interactiveAdd() {
 }
 
 case "$1" in
-        search) searchBookmarks;;
         print) printBookmarks;;
         pretty) printPretty;;
         add) shift; addBookmark "$@";;
         tags) printTags;;
         interactive) interactiveAdd;;
-        "") searchBookmarks;;
+        search) printPretty | searchBookmarks;;
+        "") printPretty | searchBookmarks;;
         *) printErr "no subcommand: $1" "try running 'bk help' for available subcommands";;
 esac
