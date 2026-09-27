@@ -1,2 +1,0 @@
-#!/bin/sh
-pactl list sinks short | fzf | cut -f1 | xargs pactl set-default-sink
